@@ -73,6 +73,15 @@ Preferred communication style: Simple, everyday language.
 - **PostgreSQL:** Primary database via `DATABASE_URL` environment variable
 - **Session Storage:** `connect-pg-simple` for Express session persistence
 
+### Object Storage
+- **Replit Object Storage:** Google Cloud Storage-backed file storage
+- **Environment Variables:**
+  - `DEFAULT_OBJECT_STORAGE_BUCKET_ID`: Storage bucket identifier
+  - `PRIVATE_OBJECT_DIR`: Directory for private file uploads (/.private)
+- **File Upload:** Server-side buffering via multer, uploaded to PRIVATE_OBJECT_DIR
+- **File Download:** Project-scoped API requiring both project UUID and asset UUID
+- **Security Note:** This is a single-user document preparation tool without authentication. Files are protected by UUID-based access control (knowledge of both project ID and asset ID required). Full multi-tenant authentication can be added as future enhancement if needed.
+
 ### UI Component Libraries
 - **Radix UI:** Full suite of accessible primitives (dialog, dropdown, tabs, etc.)
 - **Embla Carousel:** Carousel functionality
