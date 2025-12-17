@@ -3,6 +3,7 @@ import { createServer, type Server } from "http";
 import multer from "multer";
 import { storage } from "./storage";
 import { processZipFile, generateCodeSummary } from "./code-processor";
+import { generateExportPackage } from "./export-generator";
 import {
   insertProjectSchema,
   insertSoftwareInfoSchema,
@@ -467,21 +468,43 @@ export async function registerRoutes(
         return res.status(404).json({ error: "Project not found" });
       }
 
-      const fileName = `SoftCopyrightKit_${project.name}_${project.version}.zip`;
+      const exportResult = await generateExportPackage(req.params.id);
+
       const exportPackage = await storage.createExportPackage({
         projectId: req.params.id,
         version: project.version,
-        fileName,
-        fileSize: Math.floor(Math.random() * 5000000) + 1000000, // Simulated size
+        fileName: exportResult.fileName,
+        fileSize: exportResult.fileSize,
       });
 
-      // Update project status
       await storage.updateProject(req.params.id, { status: "exported" });
 
-      res.status(201).json(exportPackage);
+      res.status(201).json({
+        ...exportPackage,
+        downloadReady: true,
+      });
     } catch (error) {
       console.error("Error creating export package:", error);
       res.status(500).json({ error: "Failed to create export package" });
+    }
+  });
+
+  app.get("/api/projects/:id/export/download", async (req, res) => {
+    try {
+      const project = await storage.getProject(req.params.id);
+      if (!project) {
+        return res.status(404).json({ error: "Project not found" });
+      }
+
+      const exportResult = await generateExportPackage(req.params.id);
+
+      res.setHeader("Content-Type", "application/zip");
+      res.setHeader("Content-Disposition", `attachment; filename*=UTF-8''${encodeURIComponent(exportResult.fileName)}`);
+      res.setHeader("Content-Length", exportResult.fileSize);
+      res.send(exportResult.buffer);
+    } catch (error) {
+      console.error("Error downloading export package:", error);
+      res.status(500).json({ error: "Failed to download export package" });
     }
   });
 

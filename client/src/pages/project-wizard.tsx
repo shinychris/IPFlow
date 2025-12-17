@@ -271,6 +271,35 @@ export default function ProjectWizardPage() {
     },
   });
 
+  const [isExporting, setIsExporting] = useState(false);
+
+  const handleExport = async () => {
+    if (!projectId || isNew) return;
+    
+    setIsExporting(true);
+    toast({ title: "正在生成导出包", description: "请稍候..." });
+    
+    try {
+      await apiRequest("POST", `/api/projects/${projectId}/export`, {});
+      
+      const downloadUrl = `/api/projects/${projectId}/export/download`;
+      const link = document.createElement("a");
+      link.href = downloadUrl;
+      link.download = "";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      toast({ title: "导出成功", description: "文件已开始下载" });
+      queryClient.invalidateQueries({ queryKey: ["/api/projects", projectId] });
+    } catch (error) {
+      console.error("Export error:", error);
+      toast({ title: "导出失败", description: "请重试", variant: "destructive" });
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   const handleNext = () => {
     if (isNew && currentStep === 1) {
       if (!formData.name) {
@@ -956,9 +985,14 @@ export default function ProjectWizardPage() {
                   <CardTitle className="text-base">导出选项</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
-                  <Button className="w-full" data-testid="button-export-zip">
+                  <Button 
+                    className="w-full" 
+                    data-testid="button-export-zip"
+                    onClick={handleExport}
+                    disabled={isExporting}
+                  >
                     <Download className="h-4 w-4 mr-2" />
-                    导出 ZIP 包
+                    {isExporting ? "正在导出..." : "导出 ZIP 包"}
                   </Button>
                   <Button
                     variant="outline"
