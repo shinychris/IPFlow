@@ -211,6 +211,7 @@ export async function registerRoutes(
           warnings: result.warnings,
           fileTypes: summary.fileTypes,
           largestFiles: summary.largestFiles,
+          pages: result.pages,
         },
       });
     } catch (error) {

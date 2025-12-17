@@ -116,6 +116,25 @@ export default function ProjectWizardPage() {
     enabled: !isNew && !!projectId,
   });
 
+  const { data: codeBundles } = useQuery<{
+    id: string;
+    fileName: string;
+    extractedContent: string | null;
+    extractedPages: number;
+    pagesData: {
+      pageNumber: number;
+      content: string;
+      lineStart: number;
+      lineEnd: number;
+      section: 'first' | 'last';
+    }[] | null;
+    hasEnoughCode: boolean;
+    totalLines: number;
+  }[]>({
+    queryKey: ["/api/projects", projectId, "code-bundles"],
+    enabled: !isNew && !!projectId,
+  });
+
   useEffect(() => {
     if (project) {
       setCurrentStep(project.currentStep);
@@ -145,6 +164,48 @@ export default function ProjectWizardPage() {
       }));
     }
   }, [project, softwareInfo]);
+
+  useEffect(() => {
+    if (codeBundles && codeBundles.length > 0) {
+      const latestBundle = codeBundles[codeBundles.length - 1];
+      setCodeContent(latestBundle.extractedContent || "");
+      if (latestBundle.pagesData) {
+        setCodeProcessingResult({
+          totalFiles: 0,
+          totalLines: latestBundle.totalLines,
+          pageCount: latestBundle.extractedPages,
+          fileTypes: {},
+          largestFiles: [],
+          warnings: [],
+          hasEnoughCode: latestBundle.hasEnoughCode,
+          pages: latestBundle.pagesData,
+        });
+        setComplianceResults((prev) =>
+          prev.map((r) => {
+            if (r.ruleId === "code-upload") {
+              return { ...r, status: "passed", message: `已上传 ${latestBundle.fileName}` };
+            }
+            if (r.ruleId === "code-pages") {
+              return { 
+                ...r, 
+                status: latestBundle.extractedPages >= 60 ? "passed" : "warning",
+                message: latestBundle.hasEnoughCode 
+                  ? `已生成 ${latestBundle.extractedPages} 页` 
+                  : `已生成 ${latestBundle.extractedPages} 页（代码不足，已自动填充）`
+              };
+            }
+            if (r.ruleId === "code-lines") {
+              return { ...r, status: "passed", message: "每页50行，已自动格式化" };
+            }
+            if (r.ruleId === "code-header") {
+              return { ...r, status: "passed", message: "已添加行号格式" };
+            }
+            return r;
+          })
+        );
+      }
+    }
+  }, [codeBundles]);
 
   const createProjectMutation = useMutation({
     mutationFn: async () => {
@@ -231,6 +292,14 @@ export default function ProjectWizardPage() {
     fileTypes: Record<string, number>;
     largestFiles: { path: string; lines: number }[];
     warnings: string[];
+    hasEnoughCode: boolean;
+    pages: {
+      pageNumber: number;
+      content: string;
+      lineStart: number;
+      lineEnd: number;
+      section: 'first' | 'last';
+    }[];
   } | null>(null);
 
   const handleCodeUpload = async (files: File[]) => {
@@ -788,6 +857,7 @@ export default function ProjectWizardPage() {
 
             <CodePreview
               code={codeContent || "// 请上传源代码文件以预览"}
+              pages={codeProcessingResult?.pages || []}
               softwareName={formData.fullName || "软件名称"}
               version={formData.versionNumber || "V1.0"}
               language={formData.developmentLanguage || "JavaScript"}
