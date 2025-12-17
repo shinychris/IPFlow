@@ -71,6 +71,7 @@ export default function ProjectWizardPage() {
   const isNew = projectId === "new";
 
   const [currentStep, setCurrentStep] = useState(1);
+  const [isNavigating, setIsNavigating] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
     version: "V1.0",
@@ -137,7 +138,9 @@ export default function ProjectWizardPage() {
 
   useEffect(() => {
     if (project) {
-      setCurrentStep(project.currentStep);
+      if (!isNavigating) {
+        setCurrentStep(project.currentStep);
+      }
       setFormData((prev) => ({
         ...prev,
         name: project.name,
@@ -163,7 +166,7 @@ export default function ProjectWizardPage() {
         completionDate: softwareInfo.completionDate || "",
       }));
     }
-  }, [project, softwareInfo]);
+  }, [project, softwareInfo, isNavigating]);
 
   useEffect(() => {
     if (codeBundles && codeBundles.length > 0) {
@@ -236,6 +239,12 @@ export default function ProjectWizardPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/projects", projectId] });
+    },
+    onSettled: () => {
+      setIsNavigating(false);
+    },
+    onError: () => {
+      toast({ title: "步骤更新失败", description: "请重试", variant: "destructive" });
     },
   });
 
@@ -907,6 +916,8 @@ export default function ProjectWizardPage() {
 
             <DocumentEditor
               templateType={formData.templateType}
+              softwareName={formData.fullName || formData.name || "软件名称"}
+              version={formData.versionNumber || formData.version || "V1.0"}
               onSave={(sections) => {
                 toast({ title: "文档已保存" });
               }}
@@ -996,7 +1007,19 @@ export default function ProjectWizardPage() {
         ]}
       />
 
-      <StepIndicator currentStep={currentStep} className="mb-8" />
+      <StepIndicator 
+        currentStep={currentStep} 
+        className="mb-8"
+        onStepClick={(step) => {
+          setIsNavigating(true);
+          setCurrentStep(step);
+          if (!isNew && projectId) {
+            updateProjectMutation.mutate(step);
+          } else {
+            setIsNavigating(false);
+          }
+        }}
+      />
 
       {renderStepContent()}
 

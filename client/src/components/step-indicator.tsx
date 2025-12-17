@@ -4,26 +4,35 @@ import { wizardSteps } from "@shared/schema";
 
 interface StepIndicatorProps {
   currentStep: number;
+  onStepClick?: (step: number) => void;
   className?: string;
 }
 
-export function StepIndicator({ currentStep, className }: StepIndicatorProps) {
+export function StepIndicator({ currentStep, onStepClick, className }: StepIndicatorProps) {
   return (
     <div className={cn("flex items-center justify-between", className)}>
       {wizardSteps.map((step, index) => {
         const isCompleted = currentStep > step.id;
         const isCurrent = currentStep === step.id;
         const isLast = index === wizardSteps.length - 1;
+        const isClickable = isCompleted || isCurrent || step.id === currentStep + 1;
 
         return (
           <div key={step.id} className="flex items-center flex-1">
-            <div className="flex flex-col items-center">
+            <div 
+              className={cn(
+                "flex flex-col items-center",
+                isClickable && onStepClick && "cursor-pointer"
+              )}
+              onClick={() => isClickable && onStepClick?.(step.id)}
+            >
               <div
                 className={cn(
                   "flex h-10 w-10 items-center justify-center rounded-full border-2 transition-colors",
                   isCompleted && "border-primary bg-primary text-primary-foreground",
                   isCurrent && "border-primary bg-background text-primary",
-                  !isCompleted && !isCurrent && "border-muted bg-muted text-muted-foreground"
+                  !isCompleted && !isCurrent && "border-muted bg-muted text-muted-foreground",
+                  isClickable && onStepClick && "hover:scale-105 transition-transform"
                 )}
                 data-testid={`step-indicator-${step.id}`}
               >
