@@ -19,6 +19,7 @@ interface FileUploaderProps {
   onUpload: (files: File[]) => Promise<void>;
   className?: string;
   description?: string;
+  disabled?: boolean;
 }
 
 export function FileUploader({
@@ -28,6 +29,7 @@ export function FileUploader({
   onUpload,
   className,
   description = "拖拽文件到此处，或点击选择",
+  disabled = false,
 }: FileUploaderProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [files, setFiles] = useState<FileItem[]>([]);
@@ -112,14 +114,15 @@ export function FileUploader({
       <div
         className={cn(
           "relative flex flex-col items-center justify-center rounded-md border-2 border-dashed p-8 transition-colors",
-          isDragging
+          disabled
+            ? "border-muted-foreground/25 bg-muted/50 cursor-not-allowed"
+            : isDragging
             ? "border-primary bg-primary/5"
-            : "border-muted-foreground/25 hover:border-primary/50",
-          "cursor-pointer"
+            : "border-muted-foreground/25 hover:border-primary/50 cursor-pointer"
         )}
-        onDragOver={handleDragOver}
-        onDragLeave={handleDragLeave}
-        onDrop={handleDrop}
+        onDragOver={disabled ? undefined : handleDragOver}
+        onDragLeave={disabled ? undefined : handleDragLeave}
+        onDrop={disabled ? undefined : handleDrop}
         data-testid="file-upload-zone"
       >
         <input
@@ -127,7 +130,11 @@ export function FileUploader({
           accept={accept}
           multiple={multiple}
           onChange={handleFileSelect}
-          className="absolute inset-0 cursor-pointer opacity-0"
+          disabled={disabled}
+          className={cn(
+            "absolute inset-0 opacity-0",
+            disabled ? "cursor-not-allowed" : "cursor-pointer"
+          )}
           data-testid="file-input"
         />
         <div className="flex flex-col items-center gap-2 text-center">

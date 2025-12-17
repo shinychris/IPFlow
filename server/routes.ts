@@ -1,6 +1,8 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
+import multer from "multer";
 import { storage } from "./storage";
+import { processZipFile, generateCodeSummary } from "./code-processor";
 import {
   insertProjectSchema,
   insertSoftwareInfoSchema,
@@ -9,6 +11,11 @@ import {
   insertProofAssetSchema,
 } from "@shared/schema";
 import { z } from "zod";
+
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 100 * 1024 * 1024 },
+});
 
 export async function registerRoutes(
   httpServer: Server,
@@ -156,6 +163,59 @@ export async function registerRoutes(
       }
       console.error("Error creating code bundle:", error);
       res.status(500).json({ error: "Failed to create code bundle" });
+    }
+  });
+
+  app.post("/api/projects/:id/upload-code", upload.single("file"), async (req, res) => {
+    try {
+      const projectId = req.params.id;
+      const project = await storage.getProject(projectId);
+      
+      if (!project) {
+        return res.status(404).json({ error: "Project not found" });
+      }
+      
+      if (!req.file) {
+        return res.status(400).json({ error: "No file uploaded" });
+      }
+      
+      const result = processZipFile(req.file.buffer);
+      const summary = generateCodeSummary(result);
+      
+      if (result.totalFiles === 0) {
+        return res.status(400).json({ 
+          error: "No code files found", 
+          message: "\u672A\u627E\u5230\u4EE3\u7801\u6587\u4EF6\uFF0C\u8BF7\u786E\u4FDD ZIP \u5305\u4E2D\u5305\u542B\u6E90\u4EE3\u7801\u6587\u4EF6\uFF08\u5982 .js, .ts, .py, .java \u7B49\uFF09"
+        });
+      }
+      
+      const bundle = await storage.createCodeBundle({
+        projectId,
+        fileName: req.file.originalname,
+        fileSize: req.file.size,
+        extractedContent: result.combinedContent,
+        extractedPages: result.pageCount,
+        pagesData: result.pages,
+        hasEnoughCode: result.hasEnoughCode,
+        totalLines: result.totalLines,
+        status: "processed",
+      });
+      
+      res.status(201).json({
+        bundle,
+        processingResult: {
+          totalFiles: result.totalFiles,
+          totalLines: result.totalLines,
+          pageCount: result.pageCount,
+          hasEnoughCode: result.hasEnoughCode,
+          warnings: result.warnings,
+          fileTypes: summary.fileTypes,
+          largestFiles: summary.largestFiles,
+        },
+      });
+    } catch (error) {
+      console.error("Error processing code upload:", error);
+      res.status(500).json({ error: "Failed to process code file" });
     }
   });
 

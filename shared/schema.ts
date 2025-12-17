@@ -85,6 +85,15 @@ export const insertSoftwareInfoSchema = createInsertSchema(softwareInfo).omit({
 export type InsertSoftwareInfo = z.infer<typeof insertSoftwareInfoSchema>;
 export type SoftwareInfo = typeof softwareInfo.$inferSelect;
 
+// 代码页面类型
+export interface CodePageData {
+  pageNumber: number;
+  content: string;
+  lineStart: number;
+  lineEnd: number;
+  section: 'first' | 'last';
+}
+
 // 代码包表
 export const codeBundles = pgTable("code_bundles", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -93,6 +102,9 @@ export const codeBundles = pgTable("code_bundles", {
   fileSize: integer("file_size").notNull(),
   totalLines: integer("total_lines"),
   extractedPages: integer("extracted_pages"),
+  extractedContent: text("extracted_content"),
+  pagesData: jsonb("pages_data").$type<CodePageData[]>(),
+  hasEnoughCode: boolean("has_enough_code").default(true),
   language: text("language"),
   uploadedAt: timestamp("uploaded_at").defaultNow(),
   processedAt: timestamp("processed_at"),

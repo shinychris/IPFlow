@@ -223,94 +223,114 @@ export default function ProjectWizardPage() {
     }
   };
 
+  const [isUploadingCode, setIsUploadingCode] = useState(false);
+  const [codeProcessingResult, setCodeProcessingResult] = useState<{
+    totalFiles: number;
+    totalLines: number;
+    pageCount: number;
+    fileTypes: Record<string, number>;
+    largestFiles: { path: string; lines: number }[];
+    warnings: string[];
+  } | null>(null);
+
   const handleCodeUpload = async (files: File[]) => {
-    const sampleCode = `// ${formData.fullName || "软件名称"} ${formData.versionNumber || "V1.0"}
-// 源代码示例
-
-import React from 'react';
-import { useState, useEffect } from 'react';
-
-export function MainComponent() {
-  const [data, setData] = useState([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    fetchData();
-  }, []);
-
-  const fetchData = async () => {
+    if (!projectId || files.length === 0) return;
+    
+    setIsUploadingCode(true);
+    toast({ title: "正在上传文件", description: "请稍候..." });
+    
     try {
-      const response = await fetch('/api/data');
+      const formDataUpload = new FormData();
+      formDataUpload.append("file", files[0]);
+      
+      const response = await fetch(`/api/projects/${projectId}/upload-code`, {
+        method: "POST",
+        body: formDataUpload,
+      });
+      
       const result = await response.json();
-      setData(result);
+      
+      if (!response.ok) {
+        const errorMessage = result.message || "请检查文件格式后重试";
+        setCodeContent("");
+        setCodeProcessingResult(null);
+        setComplianceResults((prev) =>
+          prev.map((r) => {
+            if (r.category === "code") {
+              if (r.ruleId === "code-upload") {
+                return { ...r, status: "failed", message: errorMessage };
+              }
+              return { ...r, status: "pending", message: "请先上传有效的源代码文件" };
+            }
+            return r;
+          })
+        );
+        toast({ 
+          title: "上传失败", 
+          description: errorMessage,
+          variant: "destructive"
+        });
+        return;
+      }
+      
+      setCodeContent(result.bundle.extractedContent || "");
+      setCodeProcessingResult(result.processingResult);
+      
+      setComplianceResults((prev) =>
+        prev.map((r) => {
+          if (r.ruleId === "code-upload") {
+            return { ...r, status: "passed", message: `已上传 ${files[0]?.name}` };
+          }
+          if (r.ruleId === "code-pages") {
+            const hasEnough = result.processingResult.hasEnoughCode;
+            const pageCount = result.processingResult.pageCount;
+            return { 
+              ...r, 
+              status: pageCount >= 60 ? "passed" : "warning",
+              message: hasEnough 
+                ? `已生成 ${pageCount} 页` 
+                : `已生成 ${pageCount} 页（代码不足，已自动填充）`
+            };
+          }
+          if (r.ruleId === "code-lines") {
+            return { ...r, status: "passed", message: "每页50行，已自动格式化" };
+          }
+          if (r.ruleId === "code-header") {
+            return { ...r, status: "passed", message: "已添加行号格式" };
+          }
+          return r;
+        })
+      );
+      
+      queryClient.invalidateQueries({ queryKey: ["/api/projects", projectId, "code-bundles"] });
+      
+      toast({ 
+        title: "\u6587\u4EF6\u4E0A\u4F20\u6210\u529F", 
+        description: `\u5DF2\u5904\u7406 ${result.processingResult.totalFiles} \u4E2A\u6587\u4EF6\uFF0C\u5171 ${result.processingResult.totalLines} \u884C\u4EE3\u7801`
+      });
     } catch (error) {
-      console.error('Error fetching data:', error);
+      console.error("Code upload error:", error);
+      setCodeContent("");
+      setCodeProcessingResult(null);
+      setComplianceResults((prev) =>
+        prev.map((r) => {
+          if (r.category === "code") {
+            if (r.ruleId === "code-upload") {
+              return { ...r, status: "failed", message: "上传失败，请重试" };
+            }
+            return { ...r, status: "pending", message: "请先上传有效的源代码文件" };
+          }
+          return r;
+        })
+      );
+      toast({ 
+        title: "上传失败", 
+        description: "请检查文件格式后重试",
+        variant: "destructive"
+      });
     } finally {
-      setLoading(false);
+      setIsUploadingCode(false);
     }
-  };
-
-  const handleSubmit = async (formData) => {
-    const response = await fetch('/api/submit', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(formData),
-    });
-    return response.json();
-  };
-
-  if (loading) {
-    return <div>Loading...</div>;
-  }
-
-  return (
-    <div className="container">
-      <h1>主页面</h1>
-      <DataList data={data} />
-      <Form onSubmit={handleSubmit} />
-    </div>
-  );
-}
-
-function DataList({ data }) {
-  return (
-    <ul>
-      {data.map((item, index) => (
-        <li key={index}>{item.name}</li>
-      ))}
-    </ul>
-  );
-}
-
-function Form({ onSubmit }) {
-  const [value, setValue] = useState('');
-
-  return (
-    <form onSubmit={(e) => {
-      e.preventDefault();
-      onSubmit({ value });
-    }}>
-      <input
-        type="text"
-        value={value}
-        onChange={(e) => setValue(e.target.value)}
-      />
-      <button type="submit">提交</button>
-    </form>
-  );
-}
-
-export default MainComponent;`;
-
-    setCodeContent(sampleCode);
-    setComplianceResults((prev) =>
-      prev.map((r) =>
-        r.ruleId === "code-upload"
-          ? { ...r, status: "passed", message: `已上传 ${files[0]?.name}` }
-          : r
-      )
-    );
-    toast({ title: "文件上传成功", description: "正在处理代码文件..." });
   };
 
   if (!isNew && isLoadingProject) {
@@ -711,16 +731,51 @@ export default MainComponent;`;
                     accept=".zip"
                     maxSize={100 * 1024 * 1024}
                     onUpload={handleCodeUpload}
-                    description="拖拽 ZIP 文件到此处，或点击选择"
+                    description={isUploadingCode ? "正在处理中..." : "拖拽 ZIP 文件到此处，或点击选择"}
+                    disabled={isUploadingCode}
                   />
+
+                  {codeProcessingResult && (
+                    <div className="mt-4 p-4 rounded-md bg-muted/50 border border-border">
+                      <h4 className="font-medium mb-3 flex items-center gap-2">
+                        <CheckCircle className="h-4 w-4 text-green-500" />
+                        处理完成
+                      </h4>
+                      <div className="grid grid-cols-2 gap-2 text-sm">
+                        <div>
+                          <span className="text-muted-foreground">文件数：</span>
+                          <span className="font-medium">{codeProcessingResult.totalFiles}</span>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">总行数：</span>
+                          <span className="font-medium">{codeProcessingResult.totalLines.toLocaleString()}</span>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">生成页数：</span>
+                          <span className="font-medium">{codeProcessingResult.pageCount}</span>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">文件类型：</span>
+                          <span className="font-medium">{Object.keys(codeProcessingResult.fileTypes).length}</span>
+                        </div>
+                      </div>
+                      {codeProcessingResult.warnings.length > 0 && (
+                        <div className="mt-2 text-sm text-amber-600">
+                          {codeProcessingResult.warnings.slice(0, 3).map((w, i) => (
+                            <div key={i}>{w}</div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
 
                   <div className="mt-4 p-4 rounded-md bg-muted/50">
                     <h4 className="font-medium mb-2">代码抽取规则</h4>
                     <ul className="text-sm text-muted-foreground space-y-1">
-                      <li>• 共抽取 60 页（前30页 + 后30页）</li>
-                      <li>• 每页不少于 50 行（去除空行）</li>
-                      <li>• 自动添加行号与页眉</li>
-                      <li>• 页眉格式：软件全称 + 版本号</li>
+                      <li>自动抽取前30页和后30页共60页源代码</li>
+                      <li>每页包含50行代码，自动添加行号</li>
+                      <li>忽略 node_modules、.git 等目录</li>
+                      <li>支持常见编程语言文件</li>
                     </ul>
                   </div>
                 </CardContent>
