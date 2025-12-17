@@ -5,6 +5,10 @@ import { storage } from "./storage";
 import { processZipFile, generateCodeSummary } from "./code-processor";
 import { generateExportPackage } from "./export-generator";
 import {
+  ObjectStorageService,
+  ObjectNotFoundError,
+} from "./objectStorage";
+import {
   insertProjectSchema,
   insertSoftwareInfoSchema,
   insertCodeBundleSchema,
@@ -272,6 +276,32 @@ export async function registerRoutes(
     }
   });
 
+  // Proof Asset Download - secure project-scoped download
+  app.get("/api/projects/:id/proof-assets/:assetId/download", async (req, res) => {
+    try {
+      const assets = await storage.getProofAssets(req.params.id);
+      const asset = assets.find((a) => a.id === req.params.assetId);
+      
+      if (!asset) {
+        return res.status(404).json({ error: "Proof asset not found" });
+      }
+      
+      if (!asset.objectPath) {
+        return res.status(404).json({ error: "File not available - metadata only" });
+      }
+      
+      const objectStorageService = new ObjectStorageService();
+      const objectFile = await objectStorageService.getObjectEntityFile(asset.objectPath);
+      objectStorageService.downloadObject(objectFile, res);
+    } catch (error) {
+      console.error("Error downloading proof asset:", error);
+      if (error instanceof ObjectNotFoundError) {
+        return res.status(404).json({ error: "File not found in storage" });
+      }
+      return res.status(500).json({ error: "Failed to download file" });
+    }
+  });
+
   // Proof Assets API
   app.get("/api/projects/:id/proof-assets", async (req, res) => {
     try {
@@ -283,11 +313,30 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/projects/:id/proof-assets", async (req, res) => {
+  app.post("/api/projects/:id/proof-assets", upload.single("file"), async (req, res) => {
     try {
+      const file = req.file;
+      let objectPath: string | undefined;
+      
+      if (file) {
+        try {
+          const objectStorageService = new ObjectStorageService();
+          objectPath = await objectStorageService.uploadBuffer(
+            file.buffer,
+            file.originalname,
+            file.mimetype
+          );
+        } catch (uploadError) {
+          console.log("Object storage not available, storing metadata only:", uploadError);
+        }
+      }
+      
       const validatedData = insertProofAssetSchema.parse({
         ...req.body,
         projectId: req.params.id,
+        fileName: file?.originalname || req.body.fileName,
+        fileSize: file?.size || req.body.fileSize || 0,
+        objectPath: objectPath,
       });
       const asset = await storage.createProofAsset(validatedData);
       res.status(201).json(asset);

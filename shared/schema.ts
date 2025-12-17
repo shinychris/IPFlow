@@ -149,6 +149,7 @@ export const proofAssets = pgTable("proof_assets", {
   type: text("type").notNull(), // identity, contract, taskbook, license, inheritance
   fileName: text("file_name").notNull(),
   fileSize: integer("file_size").notNull(),
+  objectPath: text("object_path"), // Object storage path for actual file
   uploadedAt: timestamp("uploaded_at").defaultNow(),
 });
 
