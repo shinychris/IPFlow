@@ -85,7 +85,16 @@ Preferred communication style: Simple, everyday language.
   - `PRIVATE_OBJECT_DIR`: Directory for private file uploads (/.private)
 - **File Upload:** Server-side buffering via multer, uploaded to PRIVATE_OBJECT_DIR
 - **File Download:** Project-scoped API requiring both project UUID and asset UUID
-- **Security Note:** This is a single-user document preparation tool without authentication. Files are protected by UUID-based access control (knowledge of both project ID and asset ID required). Full multi-tenant authentication can be added as future enhancement if needed.
+- **Security:** User authentication required. Files are protected by session-based auth + UUID-based access control.
+
+### Authentication
+- **Session Management:** `express-session` with `connect-pg-simple` for PostgreSQL-backed sessions
+- **Password Security:** `bcryptjs` for password hashing (10 rounds)
+- **Auth Routes:** `/api/auth/register`, `/api/auth/login`, `/api/auth/logout`, `/api/auth/me`
+- **Route Protection:** All `/api/projects/*` and related API routes require authentication via `requireAuth` middleware
+- **Frontend:** Login/Register pages with automatic redirect for unauthenticated users. Auth state managed via `useAuth` hook using TanStack Query.
+- **User Model:** id (UUID), username (unique), password (hashed), displayName, role (admin/user), createdAt
+- **Environment:** `SESSION_SECRET` required for session encryption
 
 ### UI Component Libraries
 - **Radix UI:** Full suite of accessible primitives (dialog, dropdown, tabs, etc.)
