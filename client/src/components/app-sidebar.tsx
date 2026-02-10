@@ -1,4 +1,5 @@
 import { Link, useLocation } from "wouter";
+import { useAuth } from "@/hooks/use-auth";
 import {
   Sidebar,
   SidebarContent,
@@ -11,15 +12,16 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   LayoutDashboard,
   FolderOpen,
   FileCode,
   Lightbulb,
   Stamp,
-  Settings,
   HelpCircle,
   Shield,
+  LogOut,
 } from "lucide-react";
 
 const mainNavItems = [
@@ -68,6 +70,9 @@ const resourceItems = [
 
 export function AppSidebar() {
   const [location] = useLocation();
+  const { user, logout } = useAuth();
+
+  const initials = (user?.displayName || user?.username || "U").slice(0, 2).toUpperCase();
 
   return (
     <Sidebar>
@@ -138,17 +143,28 @@ export function AppSidebar() {
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter className="p-4">
-        <SidebarMenu>
-          <SidebarMenuItem>
-            <SidebarMenuButton asChild>
-              <Link href="/help" data-testid="nav-footer-settings">
-                <Settings className="h-4 w-4" />
-                <span>设置</span>
-              </Link>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-        </SidebarMenu>
+      <SidebarFooter className="p-3">
+        <div className="flex items-center gap-3 px-2 py-1.5">
+          <Avatar className="h-8 w-8">
+            <AvatarFallback className="text-xs">{initials}</AvatarFallback>
+          </Avatar>
+          <div className="flex-1 min-w-0">
+            <div className="text-sm font-medium truncate" data-testid="text-current-user">
+              {user?.displayName || user?.username}
+            </div>
+            <div className="text-xs text-muted-foreground truncate">
+              {user?.role === "admin" ? "管理员" : "普通用户"}
+            </div>
+          </div>
+          <SidebarMenuButton
+            size="sm"
+            onClick={() => logout.mutate()}
+            className="flex-shrink-0"
+            data-testid="button-logout"
+          >
+            <LogOut className="h-4 w-4" />
+          </SidebarMenuButton>
+        </div>
       </SidebarFooter>
     </Sidebar>
   );

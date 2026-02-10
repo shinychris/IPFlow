@@ -1,6 +1,7 @@
-import type { Express } from "express";
+import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import multer from "multer";
+import bcrypt from "bcryptjs";
 import { storage } from "./storage";
 import { processZipFile, generateCodeSummary } from "./code-processor";
 import { generateExportPackage } from "./export-generator";
@@ -25,10 +26,119 @@ const upload = multer({
   limits: { fileSize: 100 * 1024 * 1024 },
 });
 
+const registerSchema = z.object({
+  username: z.string().min(2, "用户名长度为2-30个字符").max(30, "用户名长度为2-30个字符"),
+  password: z.string().min(6, "密码长度不能少于6个字符"),
+  displayName: z.string().optional(),
+});
+
+const loginSchema = z.object({
+  username: z.string().min(1, "用户名不能为空"),
+  password: z.string().min(1, "密码不能为空"),
+});
+
+function requireAuth(req: Request, res: Response, next: NextFunction) {
+  if (!req.session.userId) {
+    return res.status(401).json({ error: "未登录，请先登录" });
+  }
+  next();
+}
+
 export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
+  // === Auth API ===
+  app.post("/api/auth/register", async (req, res) => {
+    try {
+      const parsed = registerSchema.safeParse(req.body);
+      if (!parsed.success) {
+        const firstError = parsed.error.errors[0]?.message || "输入验证失败";
+        return res.status(400).json({ error: firstError });
+      }
+      const { username, password, displayName } = parsed.data;
+      const existing = await storage.getUserByUsername(username);
+      if (existing) {
+        return res.status(409).json({ error: "用户名已存在" });
+      }
+      const hashedPassword = await bcrypt.hash(password, 10);
+      const user = await storage.createUser({
+        username,
+        password: hashedPassword,
+        displayName: displayName || username,
+      });
+      req.session.userId = user.id;
+      const { password: _, ...safeUser } = user;
+      res.status(201).json(safeUser);
+    } catch (error) {
+      console.error("Registration error:", error);
+      res.status(500).json({ error: "注册失败，请稍后重试" });
+    }
+  });
+
+  app.post("/api/auth/login", async (req, res) => {
+    try {
+      const parsed = loginSchema.safeParse(req.body);
+      if (!parsed.success) {
+        const firstError = parsed.error.errors[0]?.message || "输入验证失败";
+        return res.status(400).json({ error: firstError });
+      }
+      const { username, password } = parsed.data;
+      const user = await storage.getUserByUsername(username);
+      if (!user) {
+        return res.status(401).json({ error: "用户名或密码错误" });
+      }
+      const valid = await bcrypt.compare(password, user.password);
+      if (!valid) {
+        return res.status(401).json({ error: "用户名或密码错误" });
+      }
+      req.session.userId = user.id;
+      const { password: _, ...safeUser } = user;
+      res.json(safeUser);
+    } catch (error) {
+      console.error("Login error:", error);
+      res.status(500).json({ error: "登录失败，请稍后重试" });
+    }
+  });
+
+  app.post("/api/auth/logout", (req, res) => {
+    req.session.destroy((err) => {
+      if (err) {
+        return res.status(500).json({ error: "登出失败" });
+      }
+      res.clearCookie("connect.sid");
+      res.json({ message: "已登出" });
+    });
+  });
+
+  app.get("/api/auth/me", async (req, res) => {
+    if (!req.session.userId) {
+      return res.status(401).json({ error: "未登录" });
+    }
+    try {
+      const user = await storage.getUser(req.session.userId);
+      if (!user) {
+        return res.status(401).json({ error: "用户不存在" });
+      }
+      const { password: _, ...safeUser } = user;
+      res.json(safeUser);
+    } catch (error) {
+      console.error("Get user error:", error);
+      res.status(500).json({ error: "获取用户信息失败" });
+    }
+  });
+
+  // === Protected API routes - require authentication ===
+  app.use("/api/projects", requireAuth);
+  app.use("/api/software-info", requireAuth);
+  app.use("/api/patent-info", requireAuth);
+  app.use("/api/trademark-info", requireAuth);
+  app.use("/api/code-bundles", requireAuth);
+  app.use("/api/manual-bundles", requireAuth);
+  app.use("/api/proof-assets", requireAuth);
+  app.use("/api/compliance", requireAuth);
+  app.use("/api/export", requireAuth);
+
   // Projects API
   app.get("/api/projects", async (req, res) => {
     try {
