@@ -192,7 +192,7 @@ export default function RulesPage() {
   return (
     <div className="p-6 max-w-[1200px] mx-auto space-y-6">
       <PageHeader
-        title="合规规则"
+        title="申请规范"
         description="知识产权申请材料的格式要求与规范说明"
       />
 

@@ -55,7 +55,7 @@ const resourceItems = [
     icon: FolderOpen,
   },
   {
-    title: "合规规则",
+    title: "申请规范",
     url: "/rules",
     icon: Shield,
   },
