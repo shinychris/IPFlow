@@ -36,6 +36,8 @@ import {
   User,
   GraduationCap,
   CheckCircle,
+  Sparkles,
+  Loader2,
 } from "lucide-react";
 import {
   type Project,
@@ -177,6 +179,19 @@ export default function ProjectWizardPage() {
   const [complianceResults, setComplianceResults] = useState<ComplianceResult[]>(
     getInitialComplianceResults(projectType)
   );
+
+  const [aiLoadingField, setAiLoadingField] = useState<string | null>(null);
+  const [aiTrademarkAnalysis, setAiTrademarkAnalysis] = useState<string | null>(null);
+  const [aiClassRecommendation, setAiClassRecommendation] = useState<string | null>(null);
+  const [aiComplianceReport, setAiComplianceReport] = useState<string | null>(null);
+
+  const handleAiGenerate = (field: string) => {
+    setAiLoadingField(field);
+    setTimeout(() => {
+      setAiLoadingField(null);
+      toast({ title: "AI 功能开发中", description: "敬请期待，后续版本将支持 AI 智能生成" });
+    }, 1000);
+  };
 
   const { data: project, isLoading: isLoadingProject } = useQuery<Project>({
     queryKey: ["/api/projects", projectId],
@@ -694,6 +709,19 @@ export default function ProjectWizardPage() {
             <CardTitle className="text-base">导出选项</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
+            <Button
+              variant="outline"
+              className="w-full"
+              onClick={() => handleAiGenerate("complianceCheck")}
+              disabled={aiLoadingField === "complianceCheck"}
+              data-testid="button-ai-compliance-check"
+            >
+              {aiLoadingField === "complianceCheck" ? (
+                <><Loader2 className="h-4 w-4 mr-2 animate-spin" />AI 检查中...</>
+              ) : (
+                <><Sparkles className="h-4 w-4 mr-2" />AI 合规预检</>
+              )}
+            </Button>
             <Button 
               className="w-full" 
               data-testid="button-export-zip"
@@ -888,7 +916,22 @@ export default function ProjectWizardPage() {
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="space-y-2">
-                    <Label htmlFor="functionalDescription">功能描述</Label>
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="functionalDescription">功能描述</Label>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleAiGenerate("functionalDescription")}
+                        disabled={aiLoadingField === "functionalDescription"}
+                        data-testid="button-ai-functional-description"
+                      >
+                        {aiLoadingField === "functionalDescription" ? (
+                          <><Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />AI 生成中...</>
+                        ) : (
+                          <><Sparkles className="h-3.5 w-3.5 mr-1.5" />AI 生成</>
+                        )}
+                      </Button>
+                    </div>
                     <Textarea
                       id="functionalDescription"
                       placeholder="简要描述软件的主要功能..."
@@ -904,7 +947,22 @@ export default function ProjectWizardPage() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="technicalFeatures">技术特点</Label>
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="technicalFeatures">技术特点</Label>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleAiGenerate("technicalFeatures")}
+                        disabled={aiLoadingField === "technicalFeatures"}
+                        data-testid="button-ai-technical-features"
+                      >
+                        {aiLoadingField === "technicalFeatures" ? (
+                          <><Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />AI 生成中...</>
+                        ) : (
+                          <><Sparkles className="h-3.5 w-3.5 mr-1.5" />AI 生成</>
+                        )}
+                      </Button>
+                    </div>
                     <Textarea
                       id="technicalFeatures"
                       placeholder="描述软件的技术特点、创新点..."
@@ -1064,6 +1122,27 @@ export default function ProjectWizardPage() {
               </CardContent>
             </Card>
 
+            <Card>
+              <CardContent className="pt-6">
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => handleAiGenerate("manual")}
+                  disabled={aiLoadingField === "manual"}
+                  data-testid="button-ai-generate-manual"
+                >
+                  {aiLoadingField === "manual" ? (
+                    <><Loader2 className="h-4 w-4 mr-2 animate-spin" />AI 正在生成说明书...</>
+                  ) : (
+                    <><Sparkles className="h-4 w-4 mr-2" />AI 一键生成操作说明书</>
+                  )}
+                </Button>
+                <p className="text-xs text-muted-foreground mt-2 text-center">
+                  根据软件信息和模板类型，AI 将自动生成完整的操作说明书初稿
+                </p>
+              </CardContent>
+            </Card>
+
             <DocumentEditor
               templateType={formData.templateType}
               softwareName={formData.fullName || formData.name || "软件名称"}
@@ -1140,7 +1219,22 @@ export default function ProjectWizardPage() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="patent-abstract">摘要</Label>
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="patent-abstract">摘要</Label>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleAiGenerate("patentAbstract")}
+                        disabled={aiLoadingField === "patentAbstract"}
+                        data-testid="button-ai-patent-abstract"
+                      >
+                        {aiLoadingField === "patentAbstract" ? (
+                          <><Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />AI 生成中...</>
+                        ) : (
+                          <><Sparkles className="h-3.5 w-3.5 mr-1.5" />AI 生成摘要</>
+                        )}
+                      </Button>
+                    </div>
                     <Textarea
                       id="patent-abstract"
                       placeholder="简要描述发明的技术方案和主要用途..."
@@ -1244,11 +1338,26 @@ export default function ProjectWizardPage() {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div className="lg:col-span-2 space-y-6">
               <Card>
-                <CardHeader>
-                  <CardTitle>权利要求书</CardTitle>
-                  <CardDescription>
-                    编写专利的权利要求，明确保护范围
-                  </CardDescription>
+                <CardHeader className="flex flex-row items-start justify-between gap-4">
+                  <div className="space-y-1.5">
+                    <CardTitle>权利要求书</CardTitle>
+                    <CardDescription>
+                      编写专利的权利要求，明确保护范围
+                    </CardDescription>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleAiGenerate("patentClaims")}
+                    disabled={aiLoadingField === "patentClaims"}
+                    data-testid="button-ai-patent-claims"
+                  >
+                    {aiLoadingField === "patentClaims" ? (
+                      <><Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />AI 生成中...</>
+                    ) : (
+                      <><Sparkles className="h-3.5 w-3.5 mr-1.5" />AI 辅助撰写</>
+                    )}
+                  </Button>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <Textarea
@@ -1287,8 +1396,21 @@ export default function ProjectWizardPage() {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div className="lg:col-span-2 space-y-6">
               <Card>
-                <CardHeader>
+                <CardHeader className="flex flex-row items-center justify-between gap-4">
                   <CardTitle>技术领域</CardTitle>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleAiGenerate("technicalField")}
+                    disabled={aiLoadingField === "technicalField"}
+                    data-testid="button-ai-technical-field"
+                  >
+                    {aiLoadingField === "technicalField" ? (
+                      <><Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />AI 生成中...</>
+                    ) : (
+                      <><Sparkles className="h-3.5 w-3.5 mr-1.5" />AI 生成</>
+                    )}
+                  </Button>
                 </CardHeader>
                 <CardContent>
                   <Textarea
@@ -1305,8 +1427,21 @@ export default function ProjectWizardPage() {
               </Card>
 
               <Card>
-                <CardHeader>
+                <CardHeader className="flex flex-row items-center justify-between gap-4">
                   <CardTitle>背景技术</CardTitle>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleAiGenerate("backgroundArt")}
+                    disabled={aiLoadingField === "backgroundArt"}
+                    data-testid="button-ai-background-art"
+                  >
+                    {aiLoadingField === "backgroundArt" ? (
+                      <><Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />AI 生成中...</>
+                    ) : (
+                      <><Sparkles className="h-3.5 w-3.5 mr-1.5" />AI 生成</>
+                    )}
+                  </Button>
                 </CardHeader>
                 <CardContent>
                   <Textarea
@@ -1323,8 +1458,21 @@ export default function ProjectWizardPage() {
               </Card>
 
               <Card>
-                <CardHeader>
+                <CardHeader className="flex flex-row items-center justify-between gap-4">
                   <CardTitle>技术问题</CardTitle>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleAiGenerate("technicalProblem")}
+                    disabled={aiLoadingField === "technicalProblem"}
+                    data-testid="button-ai-technical-problem"
+                  >
+                    {aiLoadingField === "technicalProblem" ? (
+                      <><Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />AI 生成中...</>
+                    ) : (
+                      <><Sparkles className="h-3.5 w-3.5 mr-1.5" />AI 生成</>
+                    )}
+                  </Button>
                 </CardHeader>
                 <CardContent>
                   <Textarea
@@ -1341,8 +1489,21 @@ export default function ProjectWizardPage() {
               </Card>
 
               <Card>
-                <CardHeader>
+                <CardHeader className="flex flex-row items-center justify-between gap-4">
                   <CardTitle>技术方案</CardTitle>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleAiGenerate("technicalSolution")}
+                    disabled={aiLoadingField === "technicalSolution"}
+                    data-testid="button-ai-technical-solution"
+                  >
+                    {aiLoadingField === "technicalSolution" ? (
+                      <><Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />AI 生成中...</>
+                    ) : (
+                      <><Sparkles className="h-3.5 w-3.5 mr-1.5" />AI 生成</>
+                    )}
+                  </Button>
                 </CardHeader>
                 <CardContent>
                   <Textarea
@@ -1359,8 +1520,21 @@ export default function ProjectWizardPage() {
               </Card>
 
               <Card>
-                <CardHeader>
+                <CardHeader className="flex flex-row items-center justify-between gap-4">
                   <CardTitle>有益效果</CardTitle>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleAiGenerate("beneficialEffects")}
+                    disabled={aiLoadingField === "beneficialEffects"}
+                    data-testid="button-ai-beneficial-effects"
+                  >
+                    {aiLoadingField === "beneficialEffects" ? (
+                      <><Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />AI 生成中...</>
+                    ) : (
+                      <><Sparkles className="h-3.5 w-3.5 mr-1.5" />AI 生成</>
+                    )}
+                  </Button>
                 </CardHeader>
                 <CardContent>
                   <Textarea
@@ -1463,9 +1637,24 @@ export default function ProjectWizardPage() {
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="space-y-2">
-                    <Label htmlFor="trademark-name">
-                      商标名称 <span className="text-destructive">*</span>
-                    </Label>
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="trademark-name">
+                        商标名称 <span className="text-destructive">*</span>
+                      </Label>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleAiGenerate("trademarkNameCheck")}
+                        disabled={aiLoadingField === "trademarkNameCheck" || !trademarkFormData.trademarkName}
+                        data-testid="button-ai-trademark-name-check"
+                      >
+                        {aiLoadingField === "trademarkNameCheck" ? (
+                          <><Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />AI 分析中...</>
+                        ) : (
+                          <><Sparkles className="h-3.5 w-3.5 mr-1.5" />AI 查重建议</>
+                        )}
+                      </Button>
+                    </div>
                     <Input
                       id="trademark-name"
                       placeholder="输入商标名称"
@@ -1616,11 +1805,26 @@ export default function ProjectWizardPage() {
         return (
           <div className="space-y-6">
             <Card>
-              <CardHeader>
-                <CardTitle>尼斯分类选择</CardTitle>
-                <CardDescription>
-                  选择商标注册的商品/服务类别，并填写具体商品或服务项目
-                </CardDescription>
+              <CardHeader className="flex flex-row items-start justify-between gap-4">
+                <div className="space-y-1.5">
+                  <CardTitle>尼斯分类选择</CardTitle>
+                  <CardDescription>
+                    选择商标注册的商品/服务类别，并填写具体商品或服务项目
+                  </CardDescription>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleAiGenerate("trademarkClassRecommend")}
+                  disabled={aiLoadingField === "trademarkClassRecommend" || !trademarkFormData.trademarkName}
+                  data-testid="button-ai-recommend-classes"
+                >
+                  {aiLoadingField === "trademarkClassRecommend" ? (
+                    <><Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />AI 推荐中...</>
+                  ) : (
+                    <><Sparkles className="h-3.5 w-3.5 mr-1.5" />AI 推荐分类</>
+                  )}
+                </Button>
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
