@@ -34,7 +34,7 @@ export default function LoginPage() {
           className="absolute inset-0 h-full w-full object-cover"
         />
         <div className="absolute inset-0 bg-gradient-to-br from-primary/80 to-primary/40" />
-        <div className="relative z-10 flex flex-col justify-end p-10 text-white">
+        <div className="relative z-10 flex flex-col items-center justify-center p-10 text-white text-center w-full">
           <h2 className="text-3xl font-bold mb-3">知识产权助手</h2>
           <p className="text-lg opacity-90 max-w-md">
             一站式知识产权申请材料制备平台，支持软著、专利、商标三大业务，助您高效完成申请。
