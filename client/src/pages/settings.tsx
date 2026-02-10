@@ -81,7 +81,7 @@ export default function SettingsPage() {
   return (
     <div className="max-w-2xl mx-auto p-6 space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold" data-testid="text-settings-title">个人设置</h1>
+        <h1 className="text-2xl font-semibold" data-testid="text-settings-title">设置</h1>
         <p className="text-muted-foreground mt-1">管理您的账户信息和安全设置</p>
       </div>
 

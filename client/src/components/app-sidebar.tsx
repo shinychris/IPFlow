@@ -13,6 +13,8 @@ import {
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { HoverCard, HoverCardTrigger, HoverCardContent } from "@/components/ui/hover-card";
+import { Separator } from "@/components/ui/separator";
 import {
   LayoutDashboard,
   FolderOpen,
@@ -146,40 +148,45 @@ export function AppSidebar() {
 
       <SidebarFooter className="p-3">
         <div className="flex items-center gap-3 px-2 py-1.5">
-          <Link href="/settings" data-testid="link-settings">
-            <Avatar className="h-8 w-8 cursor-pointer">
-              <AvatarFallback className="text-xs">{initials}</AvatarFallback>
-            </Avatar>
-          </Link>
-          <div className="flex-1 min-w-0">
-            <Link href="/settings">
-              <div className="text-sm font-medium truncate cursor-pointer hover:underline" data-testid="text-current-user">
-                {user?.displayName || user?.username}
+          <HoverCard openDelay={200} closeDelay={300}>
+            <HoverCardTrigger asChild>
+              <button className="flex-shrink-0 cursor-pointer" data-testid="trigger-user-menu">
+                <Avatar className="h-8 w-8">
+                  <AvatarFallback className="text-xs">{initials}</AvatarFallback>
+                </Avatar>
+              </button>
+            </HoverCardTrigger>
+            <HoverCardContent side="top" align="start" className="w-48 p-2">
+              <div className="px-2 py-1.5 mb-1">
+                <div className="text-sm font-medium truncate">{user?.displayName || user?.username}</div>
+                <div className="text-xs text-muted-foreground truncate">{user?.role === "admin" ? "管理员" : "普通用户"}</div>
               </div>
-            </Link>
+              <Separator className="my-1" />
+              <Link href="/settings">
+                <div className="flex items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover-elevate cursor-pointer" data-testid="nav-settings">
+                  <Settings className="h-4 w-4" />
+                  <span>设置</span>
+                </div>
+              </Link>
+              <div
+                className="flex items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover-elevate cursor-pointer"
+                onClick={() => logout.mutate()}
+                data-testid="button-logout"
+              >
+                <LogOut className="h-4 w-4" />
+                <span>退出登录</span>
+              </div>
+            </HoverCardContent>
+          </HoverCard>
+          <div className="flex-1 min-w-0">
+            <div className="text-sm font-medium truncate" data-testid="text-current-user">
+              {user?.displayName || user?.username}
+            </div>
             <div className="text-xs text-muted-foreground truncate">
               {user?.role === "admin" ? "管理员" : "普通用户"}
             </div>
           </div>
-          <SidebarMenuButton
-            size="sm"
-            onClick={() => logout.mutate()}
-            className="flex-shrink-0"
-            data-testid="button-logout"
-          >
-            <LogOut className="h-4 w-4" />
-          </SidebarMenuButton>
         </div>
-        <SidebarMenu>
-          <SidebarMenuItem>
-            <SidebarMenuButton asChild isActive={location === "/settings"}>
-              <Link href="/settings" data-testid="nav-settings">
-                <Settings className="h-4 w-4" />
-                <span>个人设置</span>
-              </Link>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-        </SidebarMenu>
       </SidebarFooter>
     </Sidebar>
   );
