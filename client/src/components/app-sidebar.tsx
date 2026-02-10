@@ -21,6 +21,7 @@ import {
   Stamp,
   HelpCircle,
   Shield,
+  Settings,
   LogOut,
 } from "lucide-react";
 
@@ -145,13 +146,17 @@ export function AppSidebar() {
 
       <SidebarFooter className="p-3">
         <div className="flex items-center gap-3 px-2 py-1.5">
-          <Avatar className="h-8 w-8">
-            <AvatarFallback className="text-xs">{initials}</AvatarFallback>
-          </Avatar>
+          <Link href="/settings" data-testid="link-settings">
+            <Avatar className="h-8 w-8 cursor-pointer">
+              <AvatarFallback className="text-xs">{initials}</AvatarFallback>
+            </Avatar>
+          </Link>
           <div className="flex-1 min-w-0">
-            <div className="text-sm font-medium truncate" data-testid="text-current-user">
-              {user?.displayName || user?.username}
-            </div>
+            <Link href="/settings">
+              <div className="text-sm font-medium truncate cursor-pointer hover:underline" data-testid="text-current-user">
+                {user?.displayName || user?.username}
+              </div>
+            </Link>
             <div className="text-xs text-muted-foreground truncate">
               {user?.role === "admin" ? "管理员" : "普通用户"}
             </div>
@@ -165,6 +170,16 @@ export function AppSidebar() {
             <LogOut className="h-4 w-4" />
           </SidebarMenuButton>
         </div>
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton asChild isActive={location === "/settings"}>
+              <Link href="/settings" data-testid="nav-settings">
+                <Settings className="h-4 w-4" />
+                <span>个人设置</span>
+              </Link>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        </SidebarMenu>
       </SidebarFooter>
     </Sidebar>
   );

@@ -128,6 +128,55 @@ export async function registerRoutes(
     }
   });
 
+  // === User Settings API ===
+  app.patch("/api/auth/profile", requireAuth, async (req, res) => {
+    try {
+      const schema = z.object({
+        displayName: z.string().min(1, "昵称不能为空").max(30, "昵称最多30个字符"),
+      });
+      const parsed = schema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: parsed.error.errors[0]?.message || "输入验证失败" });
+      }
+      const user = await storage.updateUser(req.session.userId!, { displayName: parsed.data.displayName });
+      if (!user) {
+        return res.status(404).json({ error: "用户不存在" });
+      }
+      const { password: _, ...safeUser } = user;
+      res.json(safeUser);
+    } catch (error) {
+      console.error("Update profile error:", error);
+      res.status(500).json({ error: "更新个人信息失败" });
+    }
+  });
+
+  app.post("/api/auth/change-password", requireAuth, async (req, res) => {
+    try {
+      const schema = z.object({
+        currentPassword: z.string().min(1, "请输入当前密码"),
+        newPassword: z.string().min(6, "新密码长度不能少于6个字符"),
+      });
+      const parsed = schema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: parsed.error.errors[0]?.message || "输入验证失败" });
+      }
+      const user = await storage.getUser(req.session.userId!);
+      if (!user) {
+        return res.status(404).json({ error: "用户不存在" });
+      }
+      const valid = await bcrypt.compare(parsed.data.currentPassword, user.password);
+      if (!valid) {
+        return res.status(400).json({ error: "当前密码不正确" });
+      }
+      const hashedPassword = await bcrypt.hash(parsed.data.newPassword, 10);
+      await storage.updateUser(req.session.userId!, { password: hashedPassword });
+      res.json({ message: "密码修改成功" });
+    } catch (error) {
+      console.error("Change password error:", error);
+      res.status(500).json({ error: "修改密码失败" });
+    }
+  });
+
   // === Protected API routes - require authentication ===
   app.use("/api/projects", requireAuth);
   app.use("/api/software-info", requireAuth);

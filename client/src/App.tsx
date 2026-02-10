@@ -16,6 +16,7 @@ import TypeProjectsPage from "@/pages/type-projects";
 import ProjectWizardPage from "@/pages/project-wizard";
 import RulesPage from "@/pages/rules";
 import HelpPage from "@/pages/help";
+import SettingsPage from "@/pages/settings";
 import LoginPage from "@/pages/login";
 import RegisterPage from "@/pages/register";
 
@@ -29,6 +30,7 @@ function ProtectedRouter() {
       <Route path="/trademark">{() => <TypeProjectsPage type="trademark" />}</Route>
       <Route path="/project/new" component={ProjectWizardPage} />
       <Route path="/project/:id" component={ProjectWizardPage} />
+      <Route path="/settings" component={SettingsPage} />
       <Route path="/rules" component={RulesPage} />
       <Route path="/help" component={HelpPage} />
       <Route component={NotFound} />
