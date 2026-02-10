@@ -1,10 +1,15 @@
-# 软著申请助手 (Software Copyright Kit)
+# 知识产权助手 (IP Application Kit)
 
 ## Overview
 
-A full-stack web application designed to help individuals and teams prepare Chinese software copyright registration materials within 7 days. The system guides users through a multi-step wizard to collect software information, process source code, generate operation manuals, and export compliant document packages for submission.
+A full-stack web application for preparing Chinese intellectual property registration materials, supporting three business types: software copyright (软著申请), patent (专利申请), and trademark (商标申请). Each type has its own wizard workflow with automatic document generation, compliance validation, and export functionality.
 
-**Core Purpose:** Streamline the software copyright application process by automating document formatting, compliance checking, and material organization according to Chinese software copyright registration requirements.
+**Core Purpose:** Streamline IP application processes by automating document formatting, compliance checking, and material organization according to Chinese registration requirements.
+
+**Business Types:**
+- **Software Copyright (软著):** 5-step wizard - project setup, software info, code processing (60 pages), operation manual, export
+- **Patent (专利):** 5-step wizard - project setup, patent info, claims, description, export  
+- **Trademark (商标):** 4-step wizard - project setup, trademark info, Nice classification, export
 
 ## User Preferences
 

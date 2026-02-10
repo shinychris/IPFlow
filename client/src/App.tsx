@@ -8,19 +8,23 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
 import NotFound from "@/pages/not-found";
+import DashboardPage from "@/pages/dashboard";
 import ProjectsPage from "@/pages/projects";
+import TypeProjectsPage from "@/pages/type-projects";
 import ProjectWizardPage from "@/pages/project-wizard";
-import TemplatesPage from "@/pages/templates";
 import RulesPage from "@/pages/rules";
 import HelpPage from "@/pages/help";
 
 function Router() {
   return (
     <Switch>
-      <Route path="/" component={ProjectsPage} />
+      <Route path="/" component={DashboardPage} />
+      <Route path="/projects" component={ProjectsPage} />
+      <Route path="/copyright">{() => <TypeProjectsPage type="copyright" />}</Route>
+      <Route path="/patent">{() => <TypeProjectsPage type="patent" />}</Route>
+      <Route path="/trademark">{() => <TypeProjectsPage type="trademark" />}</Route>
       <Route path="/project/new" component={ProjectWizardPage} />
       <Route path="/project/:id" component={ProjectWizardPage} />
-      <Route path="/templates" component={TemplatesPage} />
       <Route path="/rules" component={RulesPage} />
       <Route path="/help" component={HelpPage} />
       <Route component={NotFound} />
@@ -36,7 +40,7 @@ function App() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <ThemeProvider defaultTheme="light" storageKey="softcopyright-theme">
+      <ThemeProvider defaultTheme="light" storageKey="ip-kit-theme">
         <TooltipProvider>
           <SidebarProvider style={sidebarStyle as React.CSSProperties}>
             <div className="flex min-h-screen w-full">

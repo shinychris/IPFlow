@@ -1,31 +1,36 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Link } from "wouter";
+import { useLocation } from "wouter";
 import { PageHeader } from "@/components/page-header";
 import { ProjectCard } from "@/components/project-card";
 import { EmptyState } from "@/components/empty-state";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Plus, Search, FolderOpen, Filter } from "lucide-react";
+import { Plus, Search, FileCode, Lightbulb, Stamp, FolderOpen } from "lucide-react";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import type { Project } from "@shared/schema";
+import type { Project, ProjectType } from "@shared/schema";
+import { projectTypeLabels, projectTypeDescriptions } from "@shared/schema";
 
-export default function ProjectsPage() {
+const typeIcons: Record<ProjectType, any> = {
+  copyright: FileCode,
+  patent: Lightbulb,
+  trademark: Stamp,
+};
+
+interface TypeProjectsPageProps {
+  type: ProjectType;
+}
+
+export default function TypeProjectsPage({ type }: TypeProjectsPageProps) {
   const [searchQuery, setSearchQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [typeFilter, setTypeFilter] = useState<string>("all");
+  const [, setLocation] = useLocation();
 
-  const { data: projects, isLoading } = useQuery<Project[]>({
+  const { data: allProjects, isLoading } = useQuery<Project[]>({
     queryKey: ["/api/projects"],
   });
+
+  const projects = allProjects?.filter(p => p.type === type);
 
   const deleteProjectMutation = useMutation({
     mutationFn: async (id: string) => {
@@ -46,21 +51,39 @@ export default function ProjectsPage() {
   });
 
   const filteredProjects = projects?.filter((project) => {
-    const matchesSearch = project.name
-      .toLowerCase()
-      .includes(searchQuery.toLowerCase());
-    const matchesStatus =
-      statusFilter === "all" || project.status === statusFilter;
-    const matchesType =
-      typeFilter === "all" || project.type === typeFilter;
-    return matchesSearch && matchesStatus && matchesType;
+    return project.name.toLowerCase().includes(searchQuery.toLowerCase());
   });
+
+  const handleNewProject = async () => {
+    try {
+      const res = await apiRequest("POST", "/api/projects", {
+        type,
+        name: type === "copyright" ? "新建软著项目" : type === "patent" ? "新建专利项目" : "新建商标项目",
+        version: "V1.0",
+        subjectType: "enterprise",
+        developmentMethod: "independent",
+        publicationStatus: "unpublished",
+      });
+      const project = await res.json();
+      setLocation(`/project/${project.id}`);
+    } catch (error) {
+      console.error("Failed to create project:", error);
+    }
+  };
+
+  const Icon = typeIcons[type];
 
   return (
     <div className="p-6 max-w-[1200px] mx-auto space-y-6">
       <PageHeader
-        title="所有项目"
-        description="管理您的知识产权申请项目"
+        title={projectTypeLabels[type]}
+        description={projectTypeDescriptions[type]}
+        actions={
+          <Button onClick={handleNewProject} data-testid={`button-new-${type}-project`}>
+            <Plus className="h-4 w-4 mr-2" />
+            新建{projectTypeLabels[type]}项目
+          </Button>
+        }
       />
 
       <div className="flex items-center gap-4 flex-wrap">
@@ -74,30 +97,6 @@ export default function ProjectsPage() {
             data-testid="input-search-projects"
           />
         </div>
-        <Select value={typeFilter} onValueChange={setTypeFilter}>
-          <SelectTrigger className="w-[140px]" data-testid="select-type-filter">
-            <SelectValue placeholder="全部类型" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">全部类型</SelectItem>
-            <SelectItem value="copyright">软著申请</SelectItem>
-            <SelectItem value="patent">专利申请</SelectItem>
-            <SelectItem value="trademark">商标申请</SelectItem>
-          </SelectContent>
-        </Select>
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-[140px]" data-testid="select-status-filter">
-            <Filter className="h-4 w-4 mr-2" />
-            <SelectValue placeholder="全部状态" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">全部状态</SelectItem>
-            <SelectItem value="draft">草稿</SelectItem>
-            <SelectItem value="in_progress">进行中</SelectItem>
-            <SelectItem value="completed">已完成</SelectItem>
-            <SelectItem value="exported">已导出</SelectItem>
-          </SelectContent>
-        </Select>
       </div>
 
       {isLoading ? (
@@ -119,9 +118,11 @@ export default function ProjectsPage() {
         </div>
       ) : (
         <EmptyState
-          icon={FolderOpen}
-          title="暂无项目"
-          description="从侧边栏选择业务类型，开始准备知识产权申请材料"
+          icon={Icon || FolderOpen}
+          title={`暂无${projectTypeLabels[type]}项目`}
+          description={`点击上方按钮创建您的第一个${projectTypeLabels[type]}项目`}
+          actionLabel={`创建${projectTypeLabels[type]}项目`}
+          onAction={handleNewProject}
         />
       )}
     </div>

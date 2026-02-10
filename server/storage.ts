@@ -5,6 +5,10 @@ import {
   type InsertProject,
   type SoftwareInfo,
   type InsertSoftwareInfo,
+  type PatentInfo,
+  type InsertPatentInfo,
+  type TrademarkInfo,
+  type InsertTrademarkInfo,
   type CodeBundle,
   type InsertCodeBundle,
   type ManualBundle,
@@ -15,9 +19,12 @@ import {
   type InsertComplianceRun,
   type ExportPackage,
   type InsertExportPackage,
+  type ProjectType,
   users,
   projects,
   softwareInfo,
+  patentInfo,
+  trademarkInfo,
   codeBundles,
   manualBundles,
   proofAssets,
@@ -25,14 +32,14 @@ import {
   exportPackages,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, and } from "drizzle-orm";
 
 export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
 
-  getProjects(): Promise<Project[]>;
+  getProjects(type?: ProjectType): Promise<Project[]>;
   getProject(id: string): Promise<Project | undefined>;
   createProject(project: InsertProject): Promise<Project>;
   updateProject(id: string, updates: Partial<Project>): Promise<Project | undefined>;
@@ -42,6 +49,14 @@ export interface IStorage {
   getSoftwareInfo(projectId: string): Promise<SoftwareInfo | undefined>;
   createSoftwareInfo(info: InsertSoftwareInfo): Promise<SoftwareInfo>;
   updateSoftwareInfo(projectId: string, updates: Partial<SoftwareInfo>): Promise<SoftwareInfo | undefined>;
+
+  getPatentInfo(projectId: string): Promise<PatentInfo | undefined>;
+  createPatentInfo(info: InsertPatentInfo): Promise<PatentInfo>;
+  updatePatentInfo(projectId: string, updates: Partial<PatentInfo>): Promise<PatentInfo | undefined>;
+
+  getTrademarkInfo(projectId: string): Promise<TrademarkInfo | undefined>;
+  createTrademarkInfo(info: InsertTrademarkInfo): Promise<TrademarkInfo>;
+  updateTrademarkInfo(projectId: string, updates: Partial<TrademarkInfo>): Promise<TrademarkInfo | undefined>;
 
   getCodeBundles(projectId: string): Promise<CodeBundle[]>;
   createCodeBundle(bundle: InsertCodeBundle): Promise<CodeBundle>;
@@ -79,7 +94,10 @@ export class DatabaseStorage implements IStorage {
     return user;
   }
 
-  async getProjects(): Promise<Project[]> {
+  async getProjects(type?: ProjectType): Promise<Project[]> {
+    if (type) {
+      return await db.select().from(projects).where(eq(projects.type, type)).orderBy(desc(projects.updatedAt));
+    }
     return await db.select().from(projects).orderBy(desc(projects.updatedAt));
   }
 
@@ -90,6 +108,7 @@ export class DatabaseStorage implements IStorage {
 
   async createProject(insertProject: InsertProject): Promise<Project> {
     const projectData = {
+      type: insertProject.type || "copyright",
       name: insertProject.name,
       version: insertProject.version || "V1.0",
       subjectType: insertProject.subjectType as "individual" | "enterprise" | "institution",
@@ -98,7 +117,7 @@ export class DatabaseStorage implements IStorage {
       status: (insertProject.status || "draft") as "draft" | "in_progress" | "completed" | "exported",
       currentStep: insertProject.currentStep || 1,
     };
-    const [project] = await db.insert(projects).values(projectData).returning();
+    const [project] = await db.insert(projects).values(projectData as any).returning();
     return project;
   }
 
@@ -112,11 +131,20 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteProject(id: string): Promise<boolean> {
+    const project = await this.getProject(id);
+    if (!project) return false;
+
     const result = await db.delete(projects).where(eq(projects.id, id)).returning();
     if (result.length > 0) {
-      await db.delete(softwareInfo).where(eq(softwareInfo.projectId, id));
-      await db.delete(codeBundles).where(eq(codeBundles.projectId, id));
-      await db.delete(manualBundles).where(eq(manualBundles.projectId, id));
+      if (project.type === "copyright") {
+        await db.delete(softwareInfo).where(eq(softwareInfo.projectId, id));
+        await db.delete(codeBundles).where(eq(codeBundles.projectId, id));
+        await db.delete(manualBundles).where(eq(manualBundles.projectId, id));
+      } else if (project.type === "patent") {
+        await db.delete(patentInfo).where(eq(patentInfo.projectId, id));
+      } else if (project.type === "trademark") {
+        await db.delete(trademarkInfo).where(eq(trademarkInfo.projectId, id));
+      }
       await db.delete(proofAssets).where(eq(proofAssets.projectId, id));
       await db.delete(complianceRuns).where(eq(complianceRuns.projectId, id));
       await db.delete(exportPackages).where(eq(exportPackages.projectId, id));
@@ -135,6 +163,7 @@ export class DatabaseStorage implements IStorage {
       : "V1.1";
 
     const [duplicated] = await db.insert(projects).values({
+      type: original.type,
       name: `${original.name} (副本)`,
       version: newVersion,
       subjectType: original.subjectType,
@@ -166,12 +195,50 @@ export class DatabaseStorage implements IStorage {
     return updated || undefined;
   }
 
+  async getPatentInfo(projectId: string): Promise<PatentInfo | undefined> {
+    const [info] = await db.select().from(patentInfo).where(eq(patentInfo.projectId, projectId));
+    return info || undefined;
+  }
+
+  async createPatentInfo(info: InsertPatentInfo): Promise<PatentInfo> {
+    const [created] = await db.insert(patentInfo).values(info as any).returning();
+    return created;
+  }
+
+  async updatePatentInfo(projectId: string, updates: Partial<PatentInfo>): Promise<PatentInfo | undefined> {
+    const [updated] = await db
+      .update(patentInfo)
+      .set(updates)
+      .where(eq(patentInfo.projectId, projectId))
+      .returning();
+    return updated || undefined;
+  }
+
+  async getTrademarkInfo(projectId: string): Promise<TrademarkInfo | undefined> {
+    const [info] = await db.select().from(trademarkInfo).where(eq(trademarkInfo.projectId, projectId));
+    return info || undefined;
+  }
+
+  async createTrademarkInfo(info: InsertTrademarkInfo): Promise<TrademarkInfo> {
+    const [created] = await db.insert(trademarkInfo).values(info as any).returning();
+    return created;
+  }
+
+  async updateTrademarkInfo(projectId: string, updates: Partial<TrademarkInfo>): Promise<TrademarkInfo | undefined> {
+    const [updated] = await db
+      .update(trademarkInfo)
+      .set(updates)
+      .where(eq(trademarkInfo.projectId, projectId))
+      .returning();
+    return updated || undefined;
+  }
+
   async getCodeBundles(projectId: string): Promise<CodeBundle[]> {
     return await db.select().from(codeBundles).where(eq(codeBundles.projectId, projectId));
   }
 
   async createCodeBundle(bundle: InsertCodeBundle): Promise<CodeBundle> {
-    const [created] = await db.insert(codeBundles).values(bundle).returning();
+    const [created] = await db.insert(codeBundles).values(bundle as any).returning();
     return created;
   }
 

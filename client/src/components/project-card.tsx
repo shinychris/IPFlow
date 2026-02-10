@@ -9,13 +9,14 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Progress } from "@/components/ui/progress";
-import { MoreHorizontal, FileCode, Edit, Trash2, Copy, Download } from "lucide-react";
+import { MoreHorizontal, FileCode, Lightbulb, Stamp, Edit, Trash2, Copy, Download } from "lucide-react";
 import { Link } from "wouter";
 import {
   type Project,
   projectStatusLabels,
+  projectTypeLabels,
   subjectTypeLabels,
-  developmentMethodLabels,
+  getMaxSteps,
 } from "@shared/schema";
 import { cn } from "@/lib/utils";
 
@@ -32,8 +33,28 @@ const statusColors: Record<string, string> = {
   exported: "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400",
 };
 
+const typeIcons = {
+  copyright: FileCode,
+  patent: Lightbulb,
+  trademark: Stamp,
+};
+
+const typeColors = {
+  copyright: "text-blue-500",
+  patent: "text-amber-500",
+  trademark: "text-emerald-500",
+};
+
+const typeBgColors = {
+  copyright: "bg-blue-500/10",
+  patent: "bg-amber-500/10",
+  trademark: "bg-emerald-500/10",
+};
+
 export function ProjectCard({ project, onDelete, onDuplicate }: ProjectCardProps) {
-  const progressPercentage = ((project.currentStep - 1) / 4) * 100;
+  const maxSteps = getMaxSteps(project.type);
+  const progressPercentage = ((project.currentStep - 1) / (maxSteps - 1)) * 100;
+  const Icon = typeIcons[project.type] || FileCode;
 
   const formatDate = (date: Date | string | null) => {
     if (!date) return "-";
@@ -52,16 +73,19 @@ export function ProjectCard({ project, onDelete, onDuplicate }: ProjectCardProps
     >
       <CardHeader className="flex flex-row items-start justify-between gap-4 pb-2">
         <div className="flex items-start gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-md bg-primary/10">
-            <FileCode className="h-5 w-5 text-primary" />
+          <div className={cn("flex h-10 w-10 items-center justify-center rounded-md", typeBgColors[project.type])}>
+            <Icon className={cn("h-5 w-5", typeColors[project.type])} />
           </div>
           <div className="min-w-0">
             <Link href={`/project/${project.id}`}>
-              <h3 className="font-semibold truncate hover:text-primary transition-colors cursor-pointer">
+              <h3 className="font-semibold truncate hover:text-primary transition-colors cursor-pointer" data-testid={`link-project-${project.id}`}>
                 {project.name}
               </h3>
             </Link>
             <div className="flex items-center gap-2 mt-1 flex-wrap">
+              <Badge variant="outline" className="text-xs">
+                {projectTypeLabels[project.type]}
+              </Badge>
               <Badge variant="outline" className="text-xs">
                 {project.version}
               </Badge>
@@ -115,12 +139,6 @@ export function ProjectCard({ project, onDelete, onDuplicate }: ProjectCardProps
         </DropdownMenu>
       </CardHeader>
       <CardContent className="space-y-3">
-        <div className="flex flex-wrap gap-2 text-sm text-muted-foreground">
-          <span>{subjectTypeLabels[project.subjectType]}</span>
-          <span>·</span>
-          <span>{developmentMethodLabels[project.developmentMethod]}</span>
-        </div>
-
         <div className="space-y-1">
           <div className="flex items-center justify-between text-sm">
             <span className="text-muted-foreground">完成进度</span>

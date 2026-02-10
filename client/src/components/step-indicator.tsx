@@ -1,20 +1,23 @@
 import { cn } from "@/lib/utils";
 import { Check } from "lucide-react";
-import { wizardSteps } from "@shared/schema";
+import { getWizardSteps, type ProjectType } from "@shared/schema";
 
 interface StepIndicatorProps {
   currentStep: number;
+  projectType: ProjectType;
   onStepClick?: (step: number) => void;
   className?: string;
 }
 
-export function StepIndicator({ currentStep, onStepClick, className }: StepIndicatorProps) {
+export function StepIndicator({ currentStep, projectType, onStepClick, className }: StepIndicatorProps) {
+  const steps = getWizardSteps(projectType);
+
   return (
     <div className={cn("flex items-center justify-between", className)}>
-      {wizardSteps.map((step, index) => {
+      {steps.map((step, index) => {
         const isCompleted = currentStep > step.id;
         const isCurrent = currentStep === step.id;
-        const isLast = index === wizardSteps.length - 1;
+        const isLast = index === steps.length - 1;
         const isClickable = isCompleted || isCurrent || step.id === currentStep + 1;
 
         return (

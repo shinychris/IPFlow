@@ -11,9 +11,12 @@ import {
 import {
   insertProjectSchema,
   insertSoftwareInfoSchema,
+  insertPatentInfoSchema,
+  insertTrademarkInfoSchema,
   insertCodeBundleSchema,
   insertManualBundleSchema,
   insertProofAssetSchema,
+  type ProjectType,
 } from "@shared/schema";
 import { z } from "zod";
 
@@ -29,7 +32,8 @@ export async function registerRoutes(
   // Projects API
   app.get("/api/projects", async (req, res) => {
     try {
-      const projects = await storage.getProjects();
+      const type = req.query.type as ProjectType | undefined;
+      const projects = await storage.getProjects(type);
       res.json(projects);
     } catch (error) {
       console.error("Error fetching projects:", error);
@@ -103,7 +107,7 @@ export async function registerRoutes(
     }
   });
 
-  // Software Info API
+  // Software Info API (copyright projects)
   app.get("/api/projects/:id/software-info", async (req, res) => {
     try {
       const info = await storage.getSoftwareInfo(req.params.id);
@@ -122,12 +126,10 @@ export async function registerRoutes(
       const existingInfo = await storage.getSoftwareInfo(req.params.id);
       
       if (existingInfo) {
-        // Update existing
         const updated = await storage.updateSoftwareInfo(req.params.id, req.body);
         return res.json(updated);
       }
       
-      // Create new
       const validatedData = insertSoftwareInfoSchema.parse({
         ...req.body,
         projectId: req.params.id,
@@ -143,7 +145,83 @@ export async function registerRoutes(
     }
   });
 
-  // Code Bundles API
+  // Patent Info API (patent projects)
+  app.get("/api/projects/:id/patent-info", async (req, res) => {
+    try {
+      const info = await storage.getPatentInfo(req.params.id);
+      if (!info) {
+        return res.status(404).json({ error: "Patent info not found" });
+      }
+      res.json(info);
+    } catch (error) {
+      console.error("Error fetching patent info:", error);
+      res.status(500).json({ error: "Failed to fetch patent info" });
+    }
+  });
+
+  app.post("/api/projects/:id/patent-info", async (req, res) => {
+    try {
+      const existingInfo = await storage.getPatentInfo(req.params.id);
+      
+      if (existingInfo) {
+        const updated = await storage.updatePatentInfo(req.params.id, req.body);
+        return res.json(updated);
+      }
+      
+      const validatedData = insertPatentInfoSchema.parse({
+        ...req.body,
+        projectId: req.params.id,
+      });
+      const info = await storage.createPatentInfo(validatedData);
+      res.status(201).json(info);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "Invalid patent info data", details: error.errors });
+      }
+      console.error("Error creating/updating patent info:", error);
+      res.status(500).json({ error: "Failed to save patent info" });
+    }
+  });
+
+  // Trademark Info API (trademark projects)
+  app.get("/api/projects/:id/trademark-info", async (req, res) => {
+    try {
+      const info = await storage.getTrademarkInfo(req.params.id);
+      if (!info) {
+        return res.status(404).json({ error: "Trademark info not found" });
+      }
+      res.json(info);
+    } catch (error) {
+      console.error("Error fetching trademark info:", error);
+      res.status(500).json({ error: "Failed to fetch trademark info" });
+    }
+  });
+
+  app.post("/api/projects/:id/trademark-info", async (req, res) => {
+    try {
+      const existingInfo = await storage.getTrademarkInfo(req.params.id);
+      
+      if (existingInfo) {
+        const updated = await storage.updateTrademarkInfo(req.params.id, req.body);
+        return res.json(updated);
+      }
+      
+      const validatedData = insertTrademarkInfoSchema.parse({
+        ...req.body,
+        projectId: req.params.id,
+      });
+      const info = await storage.createTrademarkInfo(validatedData);
+      res.status(201).json(info);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "Invalid trademark info data", details: error.errors });
+      }
+      console.error("Error creating/updating trademark info:", error);
+      res.status(500).json({ error: "Failed to save trademark info" });
+    }
+  });
+
+  // Code Bundles API (copyright projects)
   app.get("/api/projects/:id/code-bundles", async (req, res) => {
     try {
       const bundles = await storage.getCodeBundles(req.params.id);
@@ -238,7 +316,7 @@ export async function registerRoutes(
     }
   });
 
-  // Manual Bundles API
+  // Manual Bundles API (copyright projects)
   app.get("/api/projects/:id/manual-bundle", async (req, res) => {
     try {
       const bundle = await storage.getManualBundle(req.params.id);
@@ -276,7 +354,7 @@ export async function registerRoutes(
     }
   });
 
-  // Proof Asset Download - secure project-scoped download
+  // Proof Asset Download
   app.get("/api/projects/:id/proof-assets/:assetId/download", async (req, res) => {
     try {
       const assets = await storage.getProofAssets(req.params.id);
@@ -302,7 +380,7 @@ export async function registerRoutes(
     }
   });
 
-  // Proof Assets API
+  // Proof Assets API (shared across all project types)
   app.get("/api/projects/:id/proof-assets", async (req, res) => {
     try {
       const assets = await storage.getProofAssets(req.params.id);
@@ -362,7 +440,7 @@ export async function registerRoutes(
     }
   });
 
-  // Compliance API
+  // Compliance API (shared, type-aware)
   app.get("/api/projects/:id/compliance", async (req, res) => {
     try {
       const run = await storage.getLatestComplianceRun(req.params.id);
@@ -378,111 +456,24 @@ export async function registerRoutes(
 
   app.post("/api/projects/:id/compliance/run", async (req, res) => {
     try {
-      // Simulate compliance check
       const project = await storage.getProject(req.params.id);
-      const softwareInfo = await storage.getSoftwareInfo(req.params.id);
-      const codeBundles = await storage.getCodeBundles(req.params.id);
-      const manualBundle = await storage.getManualBundle(req.params.id);
-      const proofAssets = await storage.getProofAssets(req.params.id);
+      if (!project) {
+        return res.status(404).json({ error: "Project not found" });
+      }
 
-      const results = [];
+      let results: any[] = [];
 
-      // Info checks
-      results.push({
-        ruleId: "info-name",
-        ruleName: "软件名称",
-        category: "info",
-        status: softwareInfo?.fullName ? "passed" : "failed",
-        message: softwareInfo?.fullName ? "软件全称已填写" : "请填写软件全称",
-      });
+      if (project.type === "copyright") {
+        results = await runCopyrightCompliance(req.params.id);
+      } else if (project.type === "patent") {
+        results = await runPatentCompliance(req.params.id);
+      } else if (project.type === "trademark") {
+        results = await runTrademarkCompliance(req.params.id);
+      }
 
-      results.push({
-        ruleId: "info-version",
-        ruleName: "版本号",
-        category: "info",
-        status: softwareInfo?.versionNumber ? "passed" : "failed",
-        message: softwareInfo?.versionNumber ? "版本号已填写" : "请填写版本号",
-      });
-
-      results.push({
-        ruleId: "info-language",
-        ruleName: "开发语言",
-        category: "info",
-        status: softwareInfo?.developmentLanguage ? "passed" : "failed",
-        message: softwareInfo?.developmentLanguage ? "开发语言已填写" : "请填写开发语言",
-      });
-
-      // Code checks
-      results.push({
-        ruleId: "code-upload",
-        ruleName: "源代码上传",
-        category: "code",
-        status: codeBundles.length > 0 ? "passed" : "pending",
-        message: codeBundles.length > 0 ? "源代码已上传" : "请上传源代码文件",
-      });
-
-      results.push({
-        ruleId: "code-pages",
-        ruleName: "页数要求(60页)",
-        category: "code",
-        status: codeBundles.some((b) => b.extractedPages === 60) ? "passed" : "pending",
-        message: "需生成60页源代码",
-      });
-
-      results.push({
-        ruleId: "code-lines",
-        ruleName: "每页行数(≥50行)",
-        category: "code",
-        status: "pending",
-        message: "每页至少50行",
-      });
-
-      results.push({
-        ruleId: "code-header",
-        ruleName: "页眉格式",
-        category: "code",
-        status: "pending",
-        message: "需包含软件全称+版本号",
-      });
-
-      // Manual checks
-      results.push({
-        ruleId: "manual-pages",
-        ruleName: "说明书页数(≥15页)",
-        category: "manual",
-        status: manualBundle && (manualBundle.pageCount || 0) >= 15 ? "passed" : "pending",
-        message: "说明书至少15页",
-      });
-
-      results.push({
-        ruleId: "manual-lines",
-        ruleName: "每页行数(≥30行)",
-        category: "manual",
-        status: "pending",
-        message: "每页至少30行",
-      });
-
-      results.push({
-        ruleId: "manual-toc",
-        ruleName: "目录结构",
-        category: "manual",
-        status: manualBundle ? "passed" : "pending",
-        message: "需包含完整目录",
-      });
-
-      // Proof checks
-      const hasIdentity = proofAssets.some((a) => a.type === "identity");
-      results.push({
-        ruleId: "proof-identity",
-        ruleName: "身份证明",
-        category: "proof",
-        status: hasIdentity ? "passed" : "pending",
-        message: hasIdentity ? "身份证明已上传" : "请上传身份证明文件",
-      });
-
-      const overallStatus = results.every((r) => r.status === "passed")
+      const overallStatus = results.every((r: any) => r.status === "passed")
         ? "passed"
-        : results.some((r) => r.status === "failed")
+        : results.some((r: any) => r.status === "failed")
         ? "failed"
         : "pending";
 
@@ -558,4 +549,200 @@ export async function registerRoutes(
   });
 
   return httpServer;
+}
+
+// === Compliance check helpers ===
+
+async function runCopyrightCompliance(projectId: string) {
+  const softwareInfoData = await storage.getSoftwareInfo(projectId);
+  const codeBundleData = await storage.getCodeBundles(projectId);
+  const manualBundle = await storage.getManualBundle(projectId);
+  const proofAssetData = await storage.getProofAssets(projectId);
+
+  const results = [];
+
+  results.push({
+    ruleId: "info-name",
+    ruleName: "\u8F6F\u4EF6\u540D\u79F0",
+    category: "info",
+    status: softwareInfoData?.fullName ? "passed" : "failed",
+    message: softwareInfoData?.fullName ? "\u8F6F\u4EF6\u5168\u79F0\u5DF2\u586B\u5199" : "\u8BF7\u586B\u5199\u8F6F\u4EF6\u5168\u79F0",
+  });
+
+  results.push({
+    ruleId: "info-version",
+    ruleName: "\u7248\u672C\u53F7",
+    category: "info",
+    status: softwareInfoData?.versionNumber ? "passed" : "failed",
+    message: softwareInfoData?.versionNumber ? "\u7248\u672C\u53F7\u5DF2\u586B\u5199" : "\u8BF7\u586B\u5199\u7248\u672C\u53F7",
+  });
+
+  results.push({
+    ruleId: "info-language",
+    ruleName: "\u5F00\u53D1\u8BED\u8A00",
+    category: "info",
+    status: softwareInfoData?.developmentLanguage ? "passed" : "failed",
+    message: softwareInfoData?.developmentLanguage ? "\u5F00\u53D1\u8BED\u8A00\u5DF2\u586B\u5199" : "\u8BF7\u586B\u5199\u5F00\u53D1\u8BED\u8A00",
+  });
+
+  results.push({
+    ruleId: "code-upload",
+    ruleName: "\u6E90\u4EE3\u7801\u4E0A\u4F20",
+    category: "code",
+    status: codeBundleData.length > 0 ? "passed" : "pending",
+    message: codeBundleData.length > 0 ? "\u6E90\u4EE3\u7801\u5DF2\u4E0A\u4F20" : "\u8BF7\u4E0A\u4F20\u6E90\u4EE3\u7801\u6587\u4EF6",
+  });
+
+  results.push({
+    ruleId: "code-pages",
+    ruleName: "\u9875\u6570\u8981\u6C42(60\u9875)",
+    category: "code",
+    status: codeBundleData.some((b) => b.extractedPages === 60) ? "passed" : "pending",
+    message: "\u9700\u751F\u621060\u9875\u6E90\u4EE3\u7801",
+  });
+
+  results.push({
+    ruleId: "manual-pages",
+    ruleName: "\u8BF4\u660E\u4E66\u9875\u6570(\u226515\u9875)",
+    category: "manual",
+    status: manualBundle && (manualBundle.pageCount || 0) >= 15 ? "passed" : "pending",
+    message: "\u8BF4\u660E\u4E66\u81F3\u5C1115\u9875",
+  });
+
+  const hasIdentity = proofAssetData.some((a) => a.type === "identity");
+  results.push({
+    ruleId: "proof-identity",
+    ruleName: "\u8EAB\u4EFD\u8BC1\u660E",
+    category: "proof",
+    status: hasIdentity ? "passed" : "pending",
+    message: hasIdentity ? "\u8EAB\u4EFD\u8BC1\u660E\u5DF2\u4E0A\u4F20" : "\u8BF7\u4E0A\u4F20\u8EAB\u4EFD\u8BC1\u660E\u6587\u4EF6",
+  });
+
+  return results;
+}
+
+async function runPatentCompliance(projectId: string) {
+  const info = await storage.getPatentInfo(projectId);
+  const proofAssetData = await storage.getProofAssets(projectId);
+
+  const results = [];
+
+  results.push({
+    ruleId: "patent-title",
+    ruleName: "\u53D1\u660E\u540D\u79F0",
+    category: "info",
+    status: info?.title ? "passed" : "failed",
+    message: info?.title ? "\u53D1\u660E\u540D\u79F0\u5DF2\u586B\u5199" : "\u8BF7\u586B\u5199\u53D1\u660E\u540D\u79F0",
+  });
+
+  results.push({
+    ruleId: "patent-abstract",
+    ruleName: "\u6458\u8981",
+    category: "info",
+    status: info?.abstract ? "passed" : "failed",
+    message: info?.abstract ? "\u6458\u8981\u5DF2\u586B\u5199" : "\u8BF7\u586B\u5199\u53D1\u660E\u6458\u8981",
+  });
+
+  results.push({
+    ruleId: "patent-applicant",
+    ruleName: "\u7533\u8BF7\u4EBA\u4FE1\u606F",
+    category: "info",
+    status: info?.applicantName ? "passed" : "failed",
+    message: info?.applicantName ? "\u7533\u8BF7\u4EBA\u5DF2\u586B\u5199" : "\u8BF7\u586B\u5199\u7533\u8BF7\u4EBA\u4FE1\u606F",
+  });
+
+  results.push({
+    ruleId: "patent-claims",
+    ruleName: "\u6743\u5229\u8981\u6C42\u4E66",
+    category: "claims",
+    status: info?.claimsText ? "passed" : "failed",
+    message: info?.claimsText ? "\u6743\u5229\u8981\u6C42\u4E66\u5DF2\u7F16\u5199" : "\u8BF7\u7F16\u5199\u6743\u5229\u8981\u6C42\u4E66",
+  });
+
+  results.push({
+    ruleId: "patent-description",
+    ruleName: "\u8BF4\u660E\u4E66",
+    category: "description",
+    status: info?.descriptionText ? "passed" : "failed",
+    message: info?.descriptionText ? "\u8BF4\u660E\u4E66\u5DF2\u7F16\u5199" : "\u8BF7\u7F16\u5199\u53D1\u660E\u8BF4\u660E\u4E66",
+  });
+
+  results.push({
+    ruleId: "patent-technical-field",
+    ruleName: "\u6280\u672F\u9886\u57DF",
+    category: "description",
+    status: info?.technicalField ? "passed" : "warning",
+    message: info?.technicalField ? "\u6280\u672F\u9886\u57DF\u5DF2\u586B\u5199" : "\u5EFA\u8BAE\u586B\u5199\u6280\u672F\u9886\u57DF",
+  });
+
+  const hasIdentity = proofAssetData.some((a) => a.type === "identity");
+  results.push({
+    ruleId: "proof-identity",
+    ruleName: "\u8EAB\u4EFD\u8BC1\u660E",
+    category: "proof",
+    status: hasIdentity ? "passed" : "pending",
+    message: hasIdentity ? "\u8EAB\u4EFD\u8BC1\u660E\u5DF2\u4E0A\u4F20" : "\u8BF7\u4E0A\u4F20\u7533\u8BF7\u4EBA\u8EAB\u4EFD\u8BC1\u660E",
+  });
+
+  return results;
+}
+
+async function runTrademarkCompliance(projectId: string) {
+  const info = await storage.getTrademarkInfo(projectId);
+  const proofAssetData = await storage.getProofAssets(projectId);
+
+  const results = [];
+
+  results.push({
+    ruleId: "tm-name",
+    ruleName: "\u5546\u6807\u540D\u79F0",
+    category: "info",
+    status: info?.trademarkName ? "passed" : "failed",
+    message: info?.trademarkName ? "\u5546\u6807\u540D\u79F0\u5DF2\u586B\u5199" : "\u8BF7\u586B\u5199\u5546\u6807\u540D\u79F0",
+  });
+
+  results.push({
+    ruleId: "tm-applicant",
+    ruleName: "\u7533\u8BF7\u4EBA\u4FE1\u606F",
+    category: "info",
+    status: info?.applicantName ? "passed" : "failed",
+    message: info?.applicantName ? "\u7533\u8BF7\u4EBA\u5DF2\u586B\u5199" : "\u8BF7\u586B\u5199\u7533\u8BF7\u4EBA\u4FE1\u606F",
+  });
+
+  results.push({
+    ruleId: "tm-type",
+    ruleName: "\u5546\u6807\u7C7B\u578B",
+    category: "info",
+    status: info?.trademarkType ? "passed" : "failed",
+    message: info?.trademarkType ? "\u5546\u6807\u7C7B\u578B\u5DF2\u9009\u62E9" : "\u8BF7\u9009\u62E9\u5546\u6807\u7C7B\u578B",
+  });
+
+  const hasClasses = info?.niceClasses && info.niceClasses.length > 0;
+  results.push({
+    ruleId: "tm-classes",
+    ruleName: "\u5C3C\u65AF\u5206\u7C7B",
+    category: "classification",
+    status: hasClasses ? "passed" : "failed",
+    message: hasClasses ? `\u5DF2\u9009\u62E9 ${info!.niceClasses!.length} \u4E2A\u5206\u7C7B` : "\u8BF7\u81F3\u5C11\u9009\u62E9\u4E00\u4E2A\u5546\u54C1/\u670D\u52A1\u5206\u7C7B",
+  });
+
+  const hasImage = proofAssetData.some((a) => a.type === "trademark_image");
+  results.push({
+    ruleId: "tm-image",
+    ruleName: "\u5546\u6807\u56FE\u6837",
+    category: "proof",
+    status: hasImage ? "passed" : "failed",
+    message: hasImage ? "\u5546\u6807\u56FE\u6837\u5DF2\u4E0A\u4F20" : "\u8BF7\u4E0A\u4F20\u6E05\u6670\u7684\u5546\u6807\u56FE\u6837",
+  });
+
+  const hasIdentity = proofAssetData.some((a) => a.type === "identity");
+  results.push({
+    ruleId: "proof-identity",
+    ruleName: "\u8EAB\u4EFD\u8BC1\u660E",
+    category: "proof",
+    status: hasIdentity ? "passed" : "pending",
+    message: hasIdentity ? "\u8EAB\u4EFD\u8BC1\u660E\u5DF2\u4E0A\u4F20" : "\u8BF7\u4E0A\u4F20\u7533\u8BF7\u4EBA\u8EAB\u4EFD\u8BC1\u660E",
+  });
+
+  return results;
 }
