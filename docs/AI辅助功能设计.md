@@ -150,7 +150,7 @@
 ## 四、后端接入规划（待实现）
 
 ### 技术选型
-- AI 模型：OpenAI GPT-4 或 Claude（通过 Replit AI 集成）
+- AI 模型：OpenAI GPT-4 或 Claude（通过 API 集成）
 - 接口模式：同步请求，流式响应（后续可优化为 SSE）
 - 超时设置：单次请求最长 30 秒
 

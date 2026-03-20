@@ -33,6 +33,26 @@ from ipflow.models.copyright import (
     FileUpload,
 )
 
+# 专利模型
+from ipflow.models.patent import (
+    PatentData,
+    PatentClaim,
+    PatentDrawing,
+    PatentExportConfig,
+    PatentType,
+    PatentStatus,
+)
+
+# 商标模型
+from ipflow.models.trademark import (
+    TrademarkData,
+    NiceClassification,
+    TrademarkNiceClass,
+    TrademarkExportConfig,
+    TrademarkType,
+    TrademarkStatus,
+)
+
 # 组织模型
 from ipflow.models.organization import (
     Organization,
@@ -64,6 +84,10 @@ __all__ = [
     "PublicationStatus",
     "UserRole",
     "UserStatus",
+    "PatentType",
+    "PatentStatus",
+    "TrademarkType",
+    "TrademarkStatus",
     # 用户
     "User",
     "UserResponse",
@@ -78,6 +102,16 @@ __all__ = [
     "CopyrightManual",
     "ManualScreenshot",
     "FileUpload",
+    # 专利
+    "PatentData",
+    "PatentClaim",
+    "PatentDrawing",
+    "PatentExportConfig",
+    # 商标
+    "TrademarkData",
+    "NiceClassification",
+    "TrademarkNiceClass",
+    "TrademarkExportConfig",
     # 组织
     "Organization",
     "OrganizationMember",

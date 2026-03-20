@@ -6,10 +6,10 @@
 
 | 工具 | 版本 | 说明 |
 |------|------|------|
-| Python | 3.11+ | 后端开发 |
+| Python | 3.12+ | 后端开发 |
 | Node.js | 18+ | 前端开发 |
-| PostgreSQL | 14+ | 数据库 |
-| Redis | 6+ | 缓存 |
+| PostgreSQL | 18+ | 数据库 |
+| Redis | 7+ | 缓存 |
 | Git | 最新 | 版本控制 |
 | Make | 最新 | 构建工具 |
 
@@ -30,11 +30,12 @@ cd ipflow
 cd backend
 
 # 创建虚拟环境
-python -m venv .venv
+# 创建虚拟环境（使用 uv）
+uv venv
 source .venv/bin/activate  # Windows: .venv\Scripts\activate
 
 # 安装开发依赖
-pip install -e ".[dev]"
+uv pip install -e ".[dev]"
 
 # 配置环境变量
 cp .env.example .env
@@ -44,10 +45,10 @@ cp .env.example .env
 ### 1.4 前端环境
 
 ```bash
-cd client
+cd frontend
 
 # 安装依赖
-npm install
+pnpm install
 
 # 配置环境变量
 cp .env.example .env.local
@@ -79,13 +80,13 @@ python scripts/seed_data.py
 ```bash
 # 终端1：启动后端
 cd backend
-uvicorn ipflow.main:app --reload --port 8000
+uvicorn src.ipflow.main:app --reload --port 8000
 
 # 终端2：启动前端
-cd client
-npm run dev
+cd frontend
+pnpm dev
 
-# 访问 http://localhost:5173
+# 访问 http://localhost:3000
 ```
 
 ## 2. 开发规范
@@ -212,7 +213,7 @@ backend/src/ipflow/
 #### 前端结构
 
 ```
-client/src/
+frontend/
 ├── components/
 │   ├── ui/                    # 基础UI组件
 │   ├── layout/                # 布局组件
@@ -551,8 +552,8 @@ pytest tests/unit/test_code_processor.py
 pytest --cov=src --cov-report=html
 
 # 运行前端测试
-cd client
-npm test
+cd frontend
+pnpm lint
 
 # 运行 E2E 测试
 npm run test:e2e
@@ -609,8 +610,8 @@ const useStore = create(
       "name": "Chrome",
       "type": "chrome",
       "request": "launch",
-      "url": "http://localhost:5173",
-      "webRoot": "${workspaceFolder}/client"
+      "url": "http://localhost:3000",
+      "webRoot": "${workspaceFolder}/frontend"
     }
   ]
 }
@@ -836,7 +837,7 @@ psql -h localhost -U ipflow -d ipflow
 # backend/src/ipflow/main.py
 
 # 检查代理配置
-# client/vite.config.ts
+# frontend/next.config.ts
 ```
 
 ### Q3: 迁移失败

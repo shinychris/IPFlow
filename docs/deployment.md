@@ -65,20 +65,19 @@ DEBUG=false
 SECRET_KEY=your-secret-key-here
 
 # 数据库
-DATABASE_URL=postgresql://ipflow:password@db:5432/ipflow
+DATABASE_URL=postgresql+asyncpg://ipflow:password@db:5432/ipflow
 
 # Redis
 REDIS_URL=redis://redis:6379/0
 
 # MinIO
-MINIO_ENDPOINT=minio:9000
-MINIO_ACCESS_KEY=minioadmin
-MINIO_SECRET_KEY=minioadmin
-MINIO_BUCKET_NAME=ipflow
+STORAGE_TYPE=minio
+STORAGE_ENDPOINT=minio:9000
+STORAGE_ACCESS_KEY=minioadmin
+STORAGE_SECRET_KEY=minioadmin
+STORAGE_BUCKET=ipflow
 
 # JWT
-JWT_SECRET_KEY=your-jwt-secret
-JWT_ALGORITHM=HS256
 ACCESS_TOKEN_EXPIRE_MINUTES=30
 REFRESH_TOKEN_EXPIRE_DAYS=7
 
@@ -107,11 +106,11 @@ services:
     environment:
       - DATABASE_URL=${DATABASE_URL}
       - REDIS_URL=${REDIS_URL}
-      - MINIO_ENDPOINT=${MINIO_ENDPOINT}
-      - MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY}
-      - MINIO_SECRET_KEY=${MINIO_SECRET_KEY}
-      - MINIO_BUCKET_NAME=${MINIO_BUCKET_NAME}
-      - JWT_SECRET_KEY=${JWT_SECRET_KEY}
+      - STORAGE_TYPE=${STORAGE_TYPE}
+      - STORAGE_ENDPOINT=${STORAGE_ENDPOINT}
+      - STORAGE_ACCESS_KEY=${STORAGE_ACCESS_KEY}
+      - STORAGE_SECRET_KEY=${STORAGE_SECRET_KEY}
+      - STORAGE_BUCKET=${STORAGE_BUCKET}
       - SECRET_KEY=${SECRET_KEY}
     depends_on:
       - db
@@ -126,7 +125,7 @@ services:
   # 前端服务
   web:
     build:
-      context: ./client
+      context: ./frontend
       dockerfile: Dockerfile
     container_name: ipflow-web
     restart: unless-stopped
@@ -172,8 +171,8 @@ services:
     restart: unless-stopped
     command: server /data --console-address ":9001"
     environment:
-      - MINIO_ROOT_USER=${MINIO_ACCESS_KEY}
-      - MINIO_ROOT_PASSWORD=${MINIO_SECRET_KEY}
+      - MINIO_ROOT_USER=${STORAGE_ACCESS_KEY}
+      - MINIO_ROOT_PASSWORD=${STORAGE_SECRET_KEY}
     volumes:
       - minio_data:/data
     ports:
@@ -219,13 +218,13 @@ docker-compose build
 docker-compose up -d
 
 # 查看日志
-docker-compose logs -f app
+docker-compose logs -f backend
 
 # 执行数据库迁移
-docker-compose exec app alembic upgrade head
+docker-compose exec backend alembic upgrade head
 
 # 创建超级管理员
-docker-compose exec app python -c "
+docker-compose exec backend python -c "
 from ipflow.scripts.create_superuser import create_superuser
 import asyncio
 asyncio.run(create_superuser('admin@example.com', 'Admin123!', '管理员'))
@@ -245,7 +244,7 @@ docker-compose build
 docker-compose up -d
 
 # 执行迁移
-docker-compose exec app alembic upgrade head
+docker-compose exec backend alembic upgrade head
 ```
 
 ## 4. Kubernetes 部署
@@ -279,7 +278,6 @@ data:
 # 创建Secret
 kubectl create secret generic ipflow-secrets \
   --from-literal=SECRET_KEY=$(openssl rand -hex 32) \
-  --from-literal=JWT_SECRET_KEY=$(openssl rand -hex 32) \
   --from-literal=DATABASE_PASSWORD=$(openssl rand -hex 16) \
   -n ipflow
 ```
@@ -498,7 +496,7 @@ kubectl exec -it deployment/ipflow-app -n ipflow -- alembic upgrade head
 ```bash
 # Ubuntu 22.04
 sudo apt update
-sudo apt install -y python3.11 python3.11-venv nodejs npm postgresql redis-server nginx
+sudo apt install -y python3.12 python3.12-venv nodejs npm postgresql redis-server nginx
 
 # 创建工作目录
 sudo mkdir -p /opt/ipflow
@@ -514,7 +512,7 @@ git clone https://github.com/your-org/ipflow.git .
 
 # 创建虚拟环境
 cd backend
-python3.11 -m venv venv
+python3.12 -m venv venv
 source venv/bin/activate
 
 # 安装依赖
@@ -525,7 +523,6 @@ sudo tee /etc/systemd/system/ipflow.env << EOF
 DATABASE_URL=postgresql://ipflow:password@localhost:5432/ipflow
 REDIS_URL=redis://localhost:6379/0
 SECRET_KEY=$(openssl rand -hex 32)
-JWT_SECRET_KEY=$(openssl rand -hex 32)
 ENVIRONMENT=production
 EOF
 
@@ -561,7 +558,7 @@ sudo systemctl start ipflow
 ### 5.3 前端部署
 
 ```bash
-cd /opt/ipflow/client
+cd /opt/ipflow/frontend
 
 # 安装依赖
 npm install
@@ -682,7 +679,7 @@ openssl x509 -req -days 365 -in ipflow.csr -signkey ipflow.key -out ipflow.crt
 sudo journalctl -u ipflow -f
 
 # Docker日志
-docker-compose logs -f app
+docker-compose logs -f backend
 
 # K8s日志
 kubectl logs -f deployment/ipflow-app -n ipflow

@@ -363,7 +363,7 @@ async def login(
         raise AuthenticationException(message="用户账号已被禁用")
     
     # 验证密码
-    if not verify_password(request.password.get_secret_value(), user.password_hash):
+    if not verify_password(request.password.get_secret_value(), user.hashed_password):
         raise AuthenticationException(message="用户名或密码错误")
     
     # 生成令牌

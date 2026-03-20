@@ -65,13 +65,14 @@ services:
     environment:
       - ENVIRONMENT=development
       - DEBUG=true
-      - DATABASE_URL=postgresql://ipflow:ipflow_password@db:5432/ipflow
+      - DATABASE_URL=postgresql+asyncpg://ipflow:ipflow_password@db:5432/ipflow
       - REDIS_URL=redis://redis:6379/0
-      - MINIO_ENDPOINT=minio:9000
-      - MINIO_ACCESS_KEY=minioadmin
-      - MINIO_SECRET_KEY=minioadmin
-      - MINIO_BUCKET_NAME=ipflow
-      - JWT_SECRET_KEY=your-jwt-secret-key-change-in-production
+      - STORAGE_TYPE=minio
+      - STORAGE_ENDPOINT=minio:9000
+      - STORAGE_ACCESS_KEY=minioadmin
+      - STORAGE_SECRET_KEY=minioadmin
+      - STORAGE_BUCKET=ipflow
+      - STORAGE_USE_SSL=false
       - SECRET_KEY=your-secret-key-change-in-production
     ports:
       - "8000:8000"
@@ -90,14 +91,14 @@ services:
   # 前端 Web 服务
   frontend:
     build:
-      context: ./client
+      context: ./frontend
       dockerfile: Dockerfile
     container_name: ipflow-frontend
     restart: unless-stopped
     environment:
-      - VITE_API_URL=http://localhost:8000/api/v1
+      - NEXT_PUBLIC_API_URL=http://localhost:8000/api/v1
     ports:
-      - "80:80"
+      - "3000:3000"
     depends_on:
       - backend
 

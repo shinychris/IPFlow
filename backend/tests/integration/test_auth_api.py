@@ -586,16 +586,19 @@ class TestAuthLogout:
         """测试携带令牌登出."""
         # Arrange
         from ipflow.core.security import create_access_token
-        from ipflow.models.user import User
+        from ipflow.models.user import User, UserRole, UserStatus
+        from uuid import uuid4
         
-        access_token = create_access_token("user-123")
+        user_id = str(uuid4())
+        access_token = create_access_token(user_id)
         
         mock_user = User(
-            id="user-123",
+            id=user_id,
             email="test@example.com",
             username="testuser",
             hashed_password="hashed",
-            is_active=True,
+            role=UserRole.MEMBER,
+            status=UserStatus.ACTIVE,
         )
         
         with patch("ipflow.api.v1.auth.get_user_by_id", new=AsyncMock(return_value=mock_user)):
@@ -622,8 +625,9 @@ class TestAuthMe:
         """测试成功获取当前用户信息."""
         # Arrange
         from ipflow.core.security import create_access_token
+        from uuid import uuid4
         
-        user_id = "user-123"
+        user_id = str(uuid4())
         access_token = create_access_token(user_id)
         
         mock_user = MagicMock()
@@ -631,7 +635,7 @@ class TestAuthMe:
         mock_user.email = "test@example.com"
         mock_user.username = "testuser"
         mock_user.display_name = "Test User"
-        mock_user.role = "user"
+        mock_user.role = "member"
         mock_user.status = "active"
         mock_user.created_at = datetime.utcnow()
         mock_user.updated_at = datetime.utcnow()

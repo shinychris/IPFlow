@@ -114,7 +114,7 @@ class UserResponse(SQLModel):
     phone: Optional[str] = None
     role: UserRole
     status: UserStatus
-    is_verified: bool
+    is_verified: bool = False
     created_at: datetime
     updated_at: datetime
     last_login_at: Optional[datetime] = None

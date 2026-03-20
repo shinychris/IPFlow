@@ -1,10 +1,16 @@
 """配置管理 - Pydantic Settings."""
 
 from functools import lru_cache
+from pathlib import Path
 from typing import Optional
 
 from pydantic import PostgresDsn, RedisDsn, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+# 计算 .env 文件路径（相对于本文件）
+# 本文件在 backend/src/ipflow/config.py，.env 在 backend/.env
+_ENV_FILE_PATH = Path(__file__).parent.parent.parent / ".env"
 
 
 class Settings(BaseSettings):
@@ -15,7 +21,7 @@ class Settings(BaseSettings):
     """
     
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=_ENV_FILE_PATH,
         env_file_encoding="utf-8",
         extra="ignore",
         case_sensitive=False,
@@ -73,6 +79,24 @@ class Settings(BaseSettings):
     # 功能开关
     ENABLE_REGISTRATION: bool = Field(default=True, description="启用注册")
     ENABLE_AI_ASSISTANT: bool = Field(default=False, description="启用 AI 助手")
+    
+    # AI/LLM 配置
+    AI_PROVIDER: str = Field(default="ollama", description="AI 提供商: ollama, openai, anthropic")
+    AI_MODEL: str = Field(default="llama3.2", description="默认 AI 模型名称")
+    
+    # Ollama 配置
+    OLLAMA_BASE_URL: str = Field(default="http://localhost:11434", description="Ollama 服务地址")
+    OLLAMA_DEFAULT_MODEL: str = Field(default="llama3.2", description="Ollama 默认模型")
+    OLLAMA_TIMEOUT: int = Field(default=120, description="Ollama 请求超时(秒)")
+    
+    # OpenAI 配置
+    OPENAI_API_KEY: Optional[str] = Field(default=None, description="OpenAI API Key")
+    OPENAI_BASE_URL: Optional[str] = Field(default=None, description="OpenAI 基础 URL")
+    OPENAI_DEFAULT_MODEL: str = Field(default="gpt-4o-mini", description="OpenAI 默认模型")
+    
+    # Anthropic 配置
+    ANTHROPIC_API_KEY: Optional[str] = Field(default=None, description="Anthropic API Key")
+    ANTHROPIC_DEFAULT_MODEL: str = Field(default="claude-3-haiku-20240307", description="Anthropic 默认模型")
     
     @property
     def is_development(self) -> bool:

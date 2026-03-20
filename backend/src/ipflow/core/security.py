@@ -2,7 +2,7 @@
 
 import secrets
 from datetime import datetime, timedelta
-from typing import Optional
+from typing import Optional, Dict, Any
 
 import bcrypt
 from jose import JWTError, jwt
@@ -126,6 +126,33 @@ def verify_access_token(token: str) -> str:
         
     except JWTError:
         raise ValueError("Invalid token")
+
+
+def decode_access_token(token: str) -> Optional[dict]:
+    """解码访问令牌.
+    
+    验证 JWT 令牌并返回完整的 payload，不抛出异常。
+    这是 verify_access_token 的安全包装版本，用于依赖注入。
+    
+    Args:
+        token: JWT 令牌
+        
+    Returns:
+        令牌的 payload 字典，如果无效则返回 None
+    """
+    settings = get_settings()
+    
+    try:
+        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+        
+        # 验证类型
+        if payload.get("type") != "access":
+            return None
+        
+        return payload
+        
+    except JWTError:
+        return None
 
 
 def verify_refresh_token(token: str) -> str:

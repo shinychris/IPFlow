@@ -99,7 +99,7 @@
 | **后端** | Express + TypeScript | ESM 模块系统 |
 | **数据库** | PostgreSQL | 关系型数据库 |
 | **ORM** | Drizzle ORM | 类型安全的数据库操作 |
-| **文件存储** | Replit Object Storage | Google Cloud Storage 后端 |
+| **文件存储** | MinIO / AWS S3 | 对象存储服务 |
 
 ### 3.2 项目结构
 
@@ -318,9 +318,9 @@ npm run db:push
 
 ### 6.3 当前托管
 
-- **平台**: Replit
-- **数据库**: Replit PostgreSQL
-- **文件存储**: Replit Object Storage
+- **平台**: 支持 Docker / Kubernetes / 传统服务器部署
+- **数据库**: PostgreSQL 14+
+- **文件存储**: MinIO 或 AWS S3 兼容存储
 
 ---
 
