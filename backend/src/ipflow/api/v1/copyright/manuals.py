@@ -115,6 +115,9 @@ async def list_manuals(
                 "id": str(m.id),
                 "template_type": m.template_type,
                 "title": m.title,
+                "source": m.source,
+                "revision": m.revision,
+                "is_confirmed": m.is_confirmed,
                 "word_count": m.word_count,
                 "page_count": m.page_count,
                 "screenshot_count": m.screenshot_count,
@@ -188,6 +191,10 @@ async def create_manual(
         screenshot_count=0,
         has_toc=False,
         has_chapters=False,
+        source="human",
+        revision=1,
+        is_confirmed=False,
+        last_edited_by=current_user.id,
     )
     
     db.add(manual)
@@ -198,6 +205,9 @@ async def create_manual(
         "id": str(manual.id),
         "template_type": manual.template_type,
         "title": manual.title,
+        "source": manual.source,
+        "revision": manual.revision,
+        "is_confirmed": manual.is_confirmed,
         "word_count": manual.word_count,
         "page_count": manual.page_count,
         "screenshot_count": manual.screenshot_count,
@@ -249,6 +259,10 @@ async def get_manual(
         "title": manual.title,
         "content_html": manual.content_html,
         "content_json": manual.content_json,
+        "source": manual.source,
+        "revision": manual.revision,
+        "is_confirmed": manual.is_confirmed,
+        "last_edited_by": str(manual.last_edited_by) if manual.last_edited_by else None,
         "word_count": manual.word_count,
         "page_count": manual.page_count,
         "screenshot_count": manual.screenshot_count,
@@ -315,6 +329,10 @@ async def update_manual(
         manual.has_toc = data.has_toc
     if data.has_chapters is not None:
         manual.has_chapters = data.has_chapters
+    manual.source = "human"
+    manual.revision += 1
+    manual.is_confirmed = False
+    manual.last_edited_by = current_user.id
     
     manual.updated_at = datetime.utcnow()
     
@@ -325,6 +343,9 @@ async def update_manual(
         "id": str(manual.id),
         "template_type": manual.template_type,
         "title": manual.title,
+        "source": manual.source,
+        "revision": manual.revision,
+        "is_confirmed": manual.is_confirmed,
         "word_count": manual.word_count,
         "page_count": manual.page_count,
         "screenshot_count": manual.screenshot_count,

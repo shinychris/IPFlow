@@ -65,9 +65,9 @@ export enum PatentType {
 
 // 商标类型
 export enum TrademarkType {
-  TEXT = "text",
-  GRAPHIC = "graphic",
-  COMBINED = "combined",
+  WORD = "word",
+  DEVICE = "device",
+  COMPOSITE = "composite",
   THREE_D = "3d",
   SOUND = "sound",
   COLOR = "color",
@@ -104,6 +104,7 @@ export interface Project {
   status?: ProjectStatus;
   current_step?: number;
   currentStep?: number;
+  flow_status?: string;
   name: string;
   version: string;
   description?: string;
@@ -139,6 +140,10 @@ export interface CopyrightData {
   functional_description?: string;
   technical_features?: string;
   target_domain?: string;
+  source?: "ai" | "human" | "mixed";
+  revision?: number;
+  is_confirmed?: boolean;
+  last_edited_by?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -178,8 +183,62 @@ export interface CopyrightManual {
   screenshot_count: number;
   has_toc: boolean;
   has_chapters: boolean;
+  source?: "ai" | "human" | "mixed";
+  revision?: number;
+  is_confirmed?: boolean;
+  last_edited_by?: string | null;
   created_at: string;
   updated_at: string;
+}
+
+export interface GenerationContext {
+  project_id: string;
+  project_type: string;
+  base_profile: {
+    name: string;
+    version: string;
+    description?: string;
+    subject_name?: string;
+  };
+  optional_inputs: {
+    code_repo?: unknown;
+    extra_brief?: string;
+    history_reuse?: { enabled: boolean; source_project_ids: string[] };
+    org_knowledge?: { enabled: boolean; dataset_ids: string[] };
+  };
+  capability_flags: {
+    can_use_repo: boolean;
+    can_use_history: boolean;
+    can_use_org_knowledge: boolean;
+  };
+  draft_exists: boolean;
+}
+
+export interface GenerationJob {
+  id?: string;
+  job_id?: string;
+  project_id?: string;
+  job_type?: string;
+  status: "queued" | "running" | "succeeded" | "failed" | "cancelled";
+  progress: number;
+  current_step?: string;
+  error?: string | null;
+  artifacts?: Record<string, unknown>;
+  created_at?: string;
+  finished_at?: string | null;
+}
+
+export interface ExportJob {
+  id?: string;
+  export_job_id?: string;
+  project_id?: string;
+  status: "queued" | "running" | "succeeded" | "failed" | "cancelled";
+  progress: number;
+  current_step?: string;
+  error?: string | null;
+  download_url?: string | null;
+  file_name?: string | null;
+  expires_at?: string | null;
 }
 
 // ============================================================================
@@ -505,9 +564,9 @@ export interface PatentTypeLabels {
 }
 
 export interface TrademarkTypeLabels {
-  text: string;
-  graphic: string;
-  combined: string;
+  word: string;
+  device: string;
+  composite: string;
   "3d": string;
   sound: string;
   color: string;

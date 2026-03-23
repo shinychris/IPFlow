@@ -11,6 +11,8 @@ import { ProjectCard } from "@/components/project-card";
 import { apiRequest } from "@/lib/queryClient";
 import { PageHeader } from "@/components/page-header";
 import { useQueryClient } from "@tanstack/react-query";
+import { useToast } from "@/hooks/use-toast";
+import { deleteProject, exportProject } from "@/lib/project-actions";
 
 const typeConfig = [
   {
@@ -47,14 +49,10 @@ const typeConfig = [
 
 export default function DashboardPage() {
   const queryClient = useQueryClient();
+  const { toast } = useToast();
 
   const { data: recentProjects = [] } = useQuery<Project[]>({
     queryKey: ["/api/v1/projects?limit=4"],
-    queryFn: async () => {
-      const res = await fetch("/api/v1/projects?limit=4");
-      if (!res.ok) throw new Error("Failed to fetch projects");
-      return res.json();
-    },
   });
 
   const duplicateMutation = useMutation({
@@ -66,6 +64,27 @@ export default function DashboardPage() {
       queryClient.invalidateQueries({ queryKey: ["/api/v1/projects?limit=4"] });
     },
   });
+
+  const deleteMutation = useMutation({
+    mutationFn: deleteProject,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/v1/projects?limit=4"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/v1/projects"] });
+      toast({ title: "删除成功", description: "项目已删除" });
+    },
+    onError: () => {
+      toast({ title: "删除失败", description: "请稍后重试", variant: "destructive" });
+    },
+  });
+
+  const handleExport = async (project: Project) => {
+    try {
+      await exportProject(project);
+      toast({ title: "导出已开始", description: "文件下载已触发" });
+    } catch {
+      toast({ title: "导出失败", description: "请先完善项目资料后重试", variant: "destructive" });
+    }
+  };
 
   return (
     <div className="p-6 space-y-6">
@@ -121,6 +140,8 @@ export default function DashboardPage() {
                 key={project.id}
                 project={project}
                 onDuplicate={() => duplicateMutation.mutate(project.id)}
+                onDelete={() => deleteMutation.mutate(project.id)}
+                onExport={() => void handleExport(project)}
               />
             ))}
           </div>

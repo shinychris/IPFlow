@@ -52,12 +52,21 @@ export default function NewProjectPage() {
       return res.json();
     },
     onSuccess: (data) => {
+      const projectType = data.project_type ?? formData.type;
+      const targetPath =
+        projectType === "copyright"
+          ? `/project/${data.id}/copyright/generate`
+          : projectType === "patent"
+            ? `/project/${data.id}/patent/generate`
+            : projectType === "trademark"
+              ? `/project/${data.id}/trademark/generate`
+              : `/project/${data.id}`;
       toast({
         title: "创建成功",
-        description: "项目已创建，正在跳转到编辑页面...",
+        description: "项目已创建，正在跳转...",
       });
       queryClient.invalidateQueries({ queryKey: ["/api/v1/projects"] });
-      router.push(`/project/${data.id}`);
+      router.push(targetPath);
     },
     onError: () => {
       toast({

@@ -1,8 +1,8 @@
 # IPFlow 知识产权助手 - 产品说明文档
 
-> **版本**: v1.0  
-> **日期**: 2026年2月  
-> **状态**: 基础功能已完成，待商业化开发
+> **版本**: v2.0（按当前代码校准）  
+> **日期**: 2026-03-20  
+> **状态**: 已支持软著/专利/商标全链路基础流程，持续完善中
 
 ---
 
@@ -16,10 +16,10 @@
 
 | 维度 | 价值描述 |
 |------|---------|
-| **效率提升** | 通过自动化文档处理，将申请材料准备时间从数天缩短至数小时 |
-| **合规保障** | 内置中国版权保护中心/专利局/商标局的格式规范校验 |
-| **流程标准化** | 向导式操作流程，降低专业知识门槛 |
-| **材料管理** | 集中化管理所有项目材料，支持版本追踪和复用 |
+| **效率提升** | 通过向导化流程和模板化文档，降低申请准备时间成本 |
+| **合规支持** | 内置代码材料分页、说明书页数与材料完整性检查 |
+| **流程标准化** | 统一项目生命周期：创建、填写、校验、导出 |
+| **组织协作** | 支持组织、成员、角色与订阅配额管理 |
 
 ### 1.3 目标用户
 
@@ -51,348 +51,221 @@
 └───────────────┴───────────────┴─────────────────────────────┘
 ```
 
-### 2.2 软著申请功能（已完成）
+### 2.2 软著申请功能（代码已实现）
 
-#### 2.2.1 代码自动处理
-- **智能提取**: 自动从 ZIP 包中提取源代码
-- **页数规整**: 按照中国版权保护中心要求，自动生成前30页+后30页（共60页）
-- **行号添加**: 自动添加行号，每页50行
-- **格式校验**: 检测代码量是否满足60页要求
+- **代码自动处理**: ZIP 解压、代码文件识别、前30页+后30页分页、行号与页眉添加
+- **操作说明书**: 模板类型（web/mobile/algorithm/script/desktop）与内容保存
+- **合规检查**: 软件信息、代码行数/页数、说明书页数等规则检查
+- **导出交付**: 生成 ZIP 导出包（当前以 TXT 材料为主）
 
-#### 2.2.2 操作说明书编辑器
-- **模板支持**: 提供5种模板（Web平台、移动App、算法/SDK、脚本工具、桌面客户端）
-- **富文本编辑**: 支持图文混排、截图插入
-- **自动页数统计**: 实时显示文档页数（要求≥15页）
+### 2.3 专利申请功能（代码已实现）
 
-#### 2.2.3 合规检查
-自动校验以下项目：
-- ✓ 软件全称、版本号、开发语言填写
-- ✓ 源代码60页准备完成
-- ✓ 说明书15页以上
-- ✓ 身份证明文件上传
+- 支持发明、实用新型、外观设计三类
+- 专利信息、权利要求、说明书相关接口
+- 导出接口已实现（说明书/权利要求/摘要/材料清单）
 
-### 2.3 专利申请功能（框架完成）
+### 2.4 商标申请功能（代码已实现）
 
-- 支持发明、实用新型、外观设计三种类型
-- 权利要求书编写向导
-- 说明书结构化编辑
-- 附图管理
+- 支持文字、图形、组合、三维、声音、颜色六种类型
+- 商标信息与尼斯分类接口
+- 导出接口已实现（申请书/分类清单/材料清单）
 
-### 2.4 商标申请功能（框架完成）
+### 2.5 平台能力（代码已实现）
 
-- 支持文字、图形、组合、三维、声音、颜色六种商标类型
-- 尼斯分类智能选择（45个类别）
-- 商标图样上传管理
+- 用户认证（JWT 访问令牌 + 刷新令牌）
+- 组织与成员管理（邀请、角色、加入组织）
+- 订阅与计费接口（计划、当前订阅、发票、用量、webhook）
+- 管理后台接口（仪表盘、用户/组织/计划、审计日志）
 
 ---
 
-## 三、技术架构
+## 三、技术架构（按当前仓库）
 
 ### 3.1 技术栈
 
 | 层级 | 技术选型 | 说明 |
 |------|---------|------|
-| **前端** | React 18 + TypeScript | 函数组件 + Hooks 模式 |
-| **路由** | Wouter | 轻量级客户端路由 |
-| **状态管理** | TanStack Query | 服务端状态管理 |
-| **UI 框架** | shadcn/ui + Radix UI | 基于 Tailwind CSS |
-| **后端** | Express + TypeScript | ESM 模块系统 |
-| **数据库** | PostgreSQL | 关系型数据库 |
-| **ORM** | Drizzle ORM | 类型安全的数据库操作 |
-| **文件存储** | MinIO / AWS S3 | 对象存储服务 |
+| **前端** | Next.js 16 + React 19 + TypeScript | App Router 架构 |
+| **状态管理** | TanStack Query + Zustand | 服务端状态 + 本地状态 |
+| **UI 框架** | shadcn/ui + Radix UI + Tailwind CSS | 组件化设计体系 |
+| **后端** | FastAPI + SQLModel + Pydantic v2 | Python 3.12+ |
+| **数据库** | PostgreSQL + Alembic | 关系数据与迁移 |
+| **缓存/队列** | Redis + Celery | 会话/异步任务预留 |
+| **对象存储** | MinIO（S3 兼容） | 文件上传与下载 |
 
 ### 3.2 项目结构
 
 ```
 IPFlow/
-├── client/                     # React 前端
-│   └── src/
-│       ├── components/         # UI 组件
-│       │   ├── ui/            # shadcn/ui 基础组件
-│       │   ├── app-sidebar.tsx    # 侧边栏导航
-│       │   ├── code-preview.tsx   # 代码预览
-│       │   ├── document-editor.tsx # 文档编辑器
-│       │   ├── file-uploader.tsx  # 文件上传
-│       │   └── ...
-│       ├── pages/             # 页面组件
-│       │   ├── dashboard.tsx      # 工作台
-│       │   ├── type-projects.tsx  # 分类项目列表
-│       │   ├── project-wizard.tsx # 项目向导
-│       │   └── ...
-│       ├── hooks/             # 自定义 Hooks
-│       │   └── use-auth.ts        # 认证状态
-│       └── lib/               # 工具库
-│           └── queryClient.ts     # Query 客户端
-├── server/                     # Express 后端
-│   ├── index.ts               # 服务入口
-│   ├── routes.ts              # API 路由定义
-│   ├── storage.ts             # 数据访问层
-│   ├── code-processor.ts      # 代码处理引擎
-│   ├── export-generator.ts    # 导出包生成器
-│   ├── objectStorage.ts       # 对象存储服务
-│   └── db.ts                  # 数据库连接
-├── shared/                     # 共享代码
-│   └── schema.ts              # Drizzle 表定义 + Zod 校验
-└── docs/                       # 文档
+├── backend/
+│   ├── src/ipflow/
+│   │   ├── api/v1/                  # FastAPI 路由
+│   │   ├── models/                  # SQLModel 模型
+│   │   ├── services/                # 业务服务（代码处理、合规等）
+│   │   ├── core/                    # 安全/中间件/日志/监控
+│   │   └── main.py                  # 应用入口
+│   ├── alembic/                     # 数据库迁移
+│   └── pyproject.toml
+├── frontend/
+│   ├── app/                         # Next.js App Router
+│   ├── components/                  # 页面与 UI 组件
+│   ├── api/                         # 前端 API 客户端
+│   ├── stores/                      # Zustand store
+│   └── lib/
+├── shared/                          # 前后端共享类型
+└── docs/
 ```
 
-### 3.3 数据库模型
+### 3.3 核心数据模型（摘要）
 
-```
-┌────────────────────────────────────────────────────────────────┐
-│                         核心数据模型                            │
-├────────────────────────────────────────────────────────────────┤
-│                                                                │
-│  ┌──────────┐     ┌──────────────┐     ┌──────────────────┐   │
-│  │  users   │     │   projects   │     │  software_info   │   │
-│  │──────────│     │──────────────│     │──────────────────│   │
-│  │ id (PK)  │◄────┤ id (PK)      │◄────┤ projectId (FK)   │   │
-│  │ username │     │ type         │     │ fullName         │   │
-│  │ password │     │ name         │     │ versionNumber    │   │
-│  │ role     │     │ subjectType  │     │ devLanguage      │   │
-│  └──────────┘     │ devMethod    │     │ ...              │   │
-│                   │ status       │     └──────────────────┘   │
-│                   │ currentStep  │                            │
-│                   └──────────────┘                            │
-│                          │                                     │
-│           ┌──────────────┼──────────────┐                     │
-│           ▼              ▼              ▼                     │
-│  ┌──────────────┐ ┌──────────────┐ ┌──────────────┐          │
-│  │ code_bundles │ │manual_bundles│ │ proof_assets │          │
-│  └──────────────┘ └──────────────┘ └──────────────┘          │
-│                                                                │
-│  ┌──────────────┐     ┌──────────────────┐                   │
-│  │patent_info   │     │ trademark_info   │                   │
-│  │(专利项目)    │     │ (商标项目)       │                   │
-│  └──────────────┘     └──────────────────┘                   │
-│                                                                │
-└────────────────────────────────────────────────────────────────┘
-```
+- **用户域**: `User`
+- **项目域**: `Project`（含 `owner_id`、`project_type`、`status`、`current_step`）
+- **软著域**: `CopyrightData`、`CodeBundle`、`CopyrightManual`
+- **专利域**: `PatentData`、`PatentClaim`、`PatentDrawing`
+- **商标域**: `TrademarkData`、`TrademarkNiceClass`、`NiceClassification`
+- **组织与计费**: `Organization`、`OrganizationMember`、`Subscription`、`Plan`、`Invoice`
+- **审计**: `AuditLog`
 
 ---
 
-## 四、核心功能详解
+## 四、核心能力实现（代码现状）
 
-### 4.1 代码处理引擎
+### 4.1 代码处理引擎（软著）
 
-**文件**: `server/code-processor.ts`
+位置：`backend/src/ipflow/services/copyright/code_processor.py`
 
-#### 支持的编程语言
-```typescript
-// 已支持的代码文件扩展名
-[
-  '.js', '.jsx', '.ts', '.tsx',    // JavaScript/TypeScript
-  '.py', '.pyw',                    // Python
-  '.java', '.kt', '.scala',         // Java/Kotlin/Scala
-  '.c', '.h', '.cpp', '.hpp',       // C/C++
-  '.cs', '.vb',                     // C#/VB
-  '.go', '.rs', '.rb', '.php',      // Go/Rust/Ruby/PHP
-  '.swift', '.vue', '.svelte',      // Swift/Vue/Svelte
-  '.html', '.css', '.scss',         // Web
-  '.sql', '.sh', '.bash',           // SQL/Shell
-  // ... 共支持 40+ 种语言
-]
-```
+- 支持多语言代码扩展名识别（40+）
+- 自动忽略 `node_modules`、`.git`、`__pycache__` 等目录
+- 按路径排序合并代码，分页输出
+- 软著规则：优先生成前30页+后30页，每页50行，附行号与页眉
+- 低于 3000 行时给出警告
 
-#### 处理流程
+### 4.2 合规检查（软著）
 
-```
-用户上传 ZIP
-     │
-     ▼
-┌─────────────────────┐
-│ 1. 解压并扫描文件   │
-│    - 忽略 node_modules, .git 等 │
-│    - 识别代码文件   │
-└─────────────────────┘
-         │
-         ▼
-┌─────────────────────┐
-│ 2. 合并代码内容     │
-│    - 按路径排序     │
-│    - 添加文件分隔符 │
-└─────────────────────┘
-         │
-         ▼
-┌─────────────────────┐
-│ 3. 分页处理         │
-│    - 前30页: 前1500行代码 │
-│    - 后30页: 后1500行代码 │
-│    - 每页50行+行号  │
-└─────────────────────┘
-         │
-         ▼
-┌─────────────────────┐
-│ 4. 合规校验         │
-│    - 检查代码量     │
-│    - 生成处理报告   │
-└─────────────────────┘
-```
+位置：`backend/src/ipflow/services/copyright/compliance_checker.py`
 
-### 4.2 导出包生成器
+- 信息类：软件名、版本号、开发语言、功能描述、技术特点
+- 代码类：总行数、文件数、页数
+- 说明书类：标题、页数、字数、目录、章节结构
+- 输出整体状态（passed/warning/failed）与是否可导出
 
-**文件**: `server/export-generator.ts`
+### 4.3 导出能力（三业务）
 
-导出包结构：
-```
-软著申请包_{软件名}_{版本}.zip
-├── 00_材料清单.txt           # 材料清单和状态
-├── 01_源代码鉴别材料.txt      # 前30页+后30页代码
-├── 02_操作说明书.txt          # 软件使用说明
-├── 03_软件信息.txt            # 软件基本信息
-├── 04_证明材料/               # 证明文件目录
-│   └── 证明材料清单.txt
-├── 05_打印指南.txt            # 打印装订规范
-└── 06_网报对照表.txt          # 网上申报字段对照
-```
+- 软著导出：`backend/src/ipflow/api/v1/copyright/export.py`
+- 专利导出：`backend/src/ipflow/api/v1/patents/export.py`
+- 商标导出：`backend/src/ipflow/api/v1/trademarks/export.py`
+
+说明：
+- 三类业务均已提供导出接口和预览接口
+- 当前导出内容主要为 ZIP + TXT 材料，PDF 规范化输出仍属于后续优化项
 
 ---
 
-## 五、商业化开发路线图
+## 五、部署与运维（按当前工程脚本）
 
-### 5.1 第一阶段：软著功能完善（1-2个月）
+### 5.1 环境要求
 
-| 优先级 | 功能 | 描述 |
-|--------|------|------|
-| P0 | PDF 导出 | 将代码和说明书导出为符合规范的 PDF |
-| P0 | 网报系统集成 | 与中国版权保护中心 API 对接 |
-| P1 | 在线支付 | 集成申请费用支付 |
-| P1 | 进度跟踪 | 申请状态实时同步 |
+- Python 3.12+
+- Node.js + pnpm
+- PostgreSQL 15+
+- Redis 7+
+- MinIO（可选但推荐）
 
-### 5.2 第二阶段：专利功能完善（2-3个月）
-
-| 优先级 | 功能 | 描述 |
-|--------|------|------|
-| P0 | 专利文档编辑器 | 权利要求书结构化编辑 |
-| P0 | 附图管理 | 专利附图上传和排版 |
-| P1 | CPC 客户端集成 | 与国家知识产权局 CPC 对接 |
-| P1 | 年费管理 | 专利年费缴纳提醒 |
-
-### 5.3 第三阶段：商标功能完善（1-2个月）
-
-| 优先级 | 功能 | 描述 |
-|--------|------|------|
-| P0 | 商标检索 | 在先商标查询 |
-| P0 | 尼斯分类智能推荐 | 基于商品描述推荐分类 |
-| P1 | 网报集成 | 与商标局网上申请系统对接 |
-
-### 5.4 第四阶段：商业化功能（持续）
-
-| 模块 | 功能 |
-|------|------|
-| **用户系统** | 企业成员管理、角色权限、团队协作 |
-| **计费系统** | 套餐订阅、按量计费、发票管理 |
-| **数据分析** | 申请成功率分析、材料质量评分 |
-| **模板市场** | 行业模板、案例库 |
-| **AI 辅助** | 智能撰写、合规检查增强 |
-
----
-
-## 六、部署与运维
-
-### 6.1 环境要求
+### 5.2 常用命令
 
 ```bash
-# 必需环境变量
-DATABASE_URL=postgresql://user:pass@host:5432/db
-SESSION_SECRET=your-secret-key
+# 根目录安装依赖
+make install
 
-# 可选（文件存储）
-DEFAULT_OBJECT_STORAGE_BUCKET_ID=your-bucket
-PRIVATE_OBJECT_DIR=/.private
+# 启动开发（前后端）
+make dev
+
+# 仅后端
+make dev-backend
+
+# 仅前端
+make dev-frontend
+
+# 测试与质量检查
+make test
+make lint
 ```
 
-### 6.2 部署方式
+### 5.3 后端与前端单独命令
 
 ```bash
-# 开发环境
-npm run dev
+# 后端
+cd backend
+alembic upgrade head
+pytest -v
 
-# 生产构建
-npm run build
-npm run start
-
-# 数据库迁移
-npm run db:push
+# 前端
+cd frontend
+pnpm dev
+pnpm lint
+pnpm check
 ```
 
-### 6.3 当前托管
+---
 
-- **平台**: 支持 Docker / Kubernetes / 传统服务器部署
-- **数据库**: PostgreSQL 14+
-- **文件存储**: MinIO 或 AWS S3 兼容存储
+## 六、知识产权与安全
+
+### 6.1 开源组件（主要）
+
+- FastAPI
+- SQLModel
+- Next.js
+- React
+- shadcn/ui
+- Tailwind CSS
+
+### 6.2 安全能力（代码层）
+
+- 密码哈希存储（bcrypt）
+- JWT 访问令牌 + 刷新令牌
+- 基于用户与角色的鉴权依赖
+- 项目查询按 `owner_id` 做数据隔离
+- 组织内角色控制（成员/管理员/超级管理员）
 
 ---
 
-## 七、知识产权与合规
+## 七、API 文档概要（当前路由）
 
-### 7.1 开源组件
+Base URL: `/api/v1`
 
-本项目使用的主要开源组件：
-- React (MIT)
-- Express (MIT)
-- Drizzle ORM (Apache-2.0)
-- shadcn/ui (MIT)
-- Tailwind CSS (MIT)
+| 模块 | 示例端点 |
+|------|---------|
+| 认证 | `POST /auth/register` `POST /auth/login` `GET /auth/me` |
+| 项目 | `GET /projects` `POST /projects` `PATCH /projects/{id}` |
+| 软著 | `GET /copyright/projects/{id}/software-info` `POST /copyright/projects/{id}/export` |
+| 专利 | `GET /patents/projects/{id}/patent-info` `POST /patents/projects/{id}/export` |
+| 商标 | `GET /trademarks/projects/{id}/trademark-info` `POST /trademarks/projects/{id}/export` |
+| 合规 | `GET /compliance/projects/{id}` `POST /compliance/projects/{id}/check` |
+| 组织 | `GET /organizations` `POST /organizations/{id}/invite` |
+| 订阅 | `GET /subscriptions/plans` `GET /subscriptions/current` |
+| 管理后台 | `GET /admin/dashboard` `GET /admin/audit-logs` |
 
-### 7.2 数据安全
-
-- 用户密码使用 bcrypt 加密存储
-- Session 使用 PostgreSQL 持久化
-- 文件访问需要项目+资产双重 UUID 验证
-- 支持 HTTPS 部署
-
----
-
-## 八、联系方式
-
-> 待补充：项目负责人、商务合作、技术支持联系方式
+> 完整接口请以 `docs/API_ENDPOINTS.md` 与后端 OpenAPI (`/docs`) 为准。
 
 ---
 
-## 附录
+## 八、当前实现状态（按代码扫描）
 
-### A. 快速启动指南
-
-```bash
-# 1. 克隆项目
-git clone <repo-url>
-cd IPFlow
-
-# 2. 安装依赖
-npm install
-
-# 3. 配置环境变量
-cp .env.example .env
-# 编辑 .env 添加数据库连接等信息
-
-# 4. 初始化数据库
-npm run db:push
-
-# 5. 启动开发服务器
-npm run dev
-```
-
-### B. API 文档概要
-
-| 端点 | 方法 | 描述 |
+| 模块 | 状态 | 说明 |
 |------|------|------|
-| `/api/auth/register` | POST | 用户注册 |
-| `/api/auth/login` | POST | 用户登录 |
-| `/api/auth/me` | GET | 获取当前用户 |
-| `/api/projects` | GET/POST | 项目列表/创建 |
-| `/api/projects/:id` | GET/PATCH/DELETE | 项目详情/更新/删除 |
-| `/api/projects/:id/upload-code` | POST | 上传代码 ZIP |
-| `/api/projects/:id/export` | POST | 生成导出包 |
-| `/api/projects/:id/compliance/run` | POST | 执行合规检查 |
+| 用户认证系统 | ✅ 已实现 | 注册/登录/刷新/当前用户 |
+| 项目管理 | ✅ 已实现 | CRUD + 复制 |
+| 软著申请流程 | ✅ 已实现 | 5步流程、代码处理、合规检查、导出 |
+| 专利申请流程 | ✅ 已实现 | 信息/权利要求/说明书/导出接口 |
+| 商标申请流程 | ✅ 已实现 | 信息/尼斯分类/导出接口 |
+| 组织协作 | ✅ 已实现 | 组织与成员管理、邀请加入 |
+| 订阅计费 | ✅ 已实现 | 计划/订阅/发票/用量/webhook |
+| 管理后台 | ✅ 已实现 | 统计、用户组织计划管理、审计日志 |
+| PDF 正式材料导出 | 🟡 待增强 | 当前导出以 TXT 为主 |
 
-### C. 项目状态统计
+---
 
-| 模块 | 完成度 | 状态 |
-|------|--------|------|
-| 用户认证系统 | 100% | ✅ 完成 |
-| 软著申请流程 | 85% | 🟡 核心功能完成，待完善 PDF 导出 |
-| 专利申请流程 | 30% | 🔵 框架完成，待实现文档编辑 |
-| 商标申请流程 | 30% | 🔵 框架完成，待实现分类选择 |
-| 导出功能 | 70% | 🟡 TXT 格式完成，待 PDF 支持 |
-| 管理后台 | 10% | 🔵 待开发 |
+## 九、说明
+
+- 本文档已根据当前仓库代码结构与主要路由重新校准，替换了旧版 Node/Express/Wouter 描述。
+- 若后续接口或模型发生调整，请同步更新 `docs/API_ENDPOINTS.md` 与本文档。

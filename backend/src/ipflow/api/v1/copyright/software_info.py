@@ -127,6 +127,10 @@ async def get_software_info(
         "functional_description": copyright_data.functional_description,
         "technical_features": copyright_data.technical_features,
         "target_domain": copyright_data.target_domain,
+        "source": copyright_data.source,
+        "revision": copyright_data.revision,
+        "is_confirmed": copyright_data.is_confirmed,
+        "last_edited_by": str(copyright_data.last_edited_by) if copyright_data.last_edited_by else None,
         "created_at": copyright_data.created_at.isoformat(),
         "updated_at": copyright_data.updated_at.isoformat(),
     }
@@ -179,6 +183,10 @@ async def update_software_info(
         copyright_data.functional_description = data.functional_description
         copyright_data.technical_features = data.technical_features
         copyright_data.target_domain = data.target_domain
+        copyright_data.source = "human"
+        copyright_data.revision += 1
+        copyright_data.is_confirmed = False
+        copyright_data.last_edited_by = current_user.id
         copyright_data.updated_at = datetime.utcnow()
     else:
         # 创建新记录
@@ -194,6 +202,10 @@ async def update_software_info(
             functional_description=data.functional_description,
             technical_features=data.technical_features,
             target_domain=data.target_domain,
+            source="human",
+            revision=1,
+            is_confirmed=False,
+            last_edited_by=current_user.id,
         )
         db.add(copyright_data)
     
@@ -218,6 +230,10 @@ async def update_software_info(
         "functional_description": copyright_data.functional_description,
         "technical_features": copyright_data.technical_features,
         "target_domain": copyright_data.target_domain,
+        "source": copyright_data.source,
+        "revision": copyright_data.revision,
+        "is_confirmed": copyright_data.is_confirmed,
+        "last_edited_by": str(copyright_data.last_edited_by) if copyright_data.last_edited_by else None,
         "created_at": copyright_data.created_at.isoformat(),
         "updated_at": copyright_data.updated_at.isoformat(),
     }

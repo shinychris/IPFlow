@@ -4,7 +4,7 @@
 
 import apiClient, { get, post, put } from "./client";
 
-export type TrademarkType = "text" | "graphic" | "combined" | "3d" | "sound" | "color";
+export type TrademarkType = "word" | "device" | "composite" | "3d" | "sound" | "color";
 export type ApplicantType = "individual" | "enterprise" | "institution";
 
 export interface TrademarkInfoRequest {
@@ -73,4 +73,36 @@ export const trademarkExportApi = {
     );
     return response.data as Blob;
   },
+};
+
+export interface StartTrademarkGenerationPayload {
+  generation_mode: "guided_confirm";
+  inputs: {
+    extra_brief?: string;
+    history_reuse?: { enabled: boolean; source_project_ids: string[] };
+    org_knowledge?: { enabled: boolean; dataset_ids: string[] };
+  };
+  policy: { overwrite_strategy: "fill_blank_only" | "new_revision" };
+}
+
+export const trademarkGenerationJobsApi = {
+  getContext: (projectId: string): Promise<any> =>
+    get(`/trademarks/projects/${projectId}/generation-context`),
+  start: (projectId: string, data: StartTrademarkGenerationPayload): Promise<any> =>
+    post(`/trademarks/projects/${projectId}/generation-jobs`, data),
+  getById: (jobId: string): Promise<any> =>
+    get(`/trademarks/generation-jobs/${jobId}`),
+  listByProject: (projectId: string): Promise<any> =>
+    get(`/trademarks/projects/${projectId}/generation-jobs`),
+  confirmMaterials: (projectId: string): Promise<any> =>
+    post(`/trademarks/projects/${projectId}/materials/confirm`, {}),
+};
+
+export const trademarkExportJobsApi = {
+  start: (projectId: string): Promise<any> =>
+    post(`/trademarks/projects/${projectId}/export-jobs`, {}),
+  getById: (jobId: string): Promise<any> =>
+    get(`/trademarks/export-jobs/${jobId}`),
+  listByProject: (projectId: string): Promise<any> =>
+    get(`/trademarks/projects/${projectId}/export-jobs`),
 };

@@ -123,6 +123,10 @@ async def get_trademark_info(
         "upload_id": str(trademark_data.upload_id) if trademark_data.upload_id else None,
         "application_number": trademark_data.application_number,
         "registration_number": trademark_data.registration_number,
+        "source": trademark_data.source,
+        "revision": trademark_data.revision,
+        "is_confirmed": trademark_data.is_confirmed,
+        "last_edited_by": str(trademark_data.last_edited_by) if trademark_data.last_edited_by else None,
         "created_at": trademark_data.created_at.isoformat(),
         "updated_at": trademark_data.updated_at.isoformat(),
     }
@@ -171,6 +175,10 @@ async def update_trademark_info(
         trademark_data.design_description = data.design_description
         trademark_data.color_claim = data.color_claim
         trademark_data.special_notes = data.special_notes
+        trademark_data.source = "human"
+        trademark_data.revision += 1
+        trademark_data.is_confirmed = False
+        trademark_data.last_edited_by = current_user.id
         trademark_data.updated_at = datetime.utcnow()
     else:
         # 创建新记录
@@ -182,6 +190,10 @@ async def update_trademark_info(
             design_description=data.design_description,
             color_claim=data.color_claim,
             special_notes=data.special_notes,
+            source="human",
+            revision=1,
+            is_confirmed=False,
+            last_edited_by=current_user.id,
         )
         db.add(trademark_data)
     
@@ -205,6 +217,10 @@ async def update_trademark_info(
         "upload_id": str(trademark_data.upload_id) if trademark_data.upload_id else None,
         "application_number": trademark_data.application_number,
         "registration_number": trademark_data.registration_number,
+        "source": trademark_data.source,
+        "revision": trademark_data.revision,
+        "is_confirmed": trademark_data.is_confirmed,
+        "last_edited_by": str(trademark_data.last_edited_by) if trademark_data.last_edited_by else None,
         "created_at": trademark_data.created_at.isoformat(),
         "updated_at": trademark_data.updated_at.isoformat(),
     }

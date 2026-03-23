@@ -9,7 +9,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Progress } from "@/components/ui/progress";
-import { MoreHorizontal, FileCode, Lightbulb, Stamp, Edit, Trash2, Copy, Download } from "lucide-react";
+import { MoreHorizontal, FileCode, Lightbulb, Stamp, Edit, Trash2, Copy, Download, Sparkles, Eye } from "lucide-react";
 import Link from "next/link";
 import {
   type Project,
@@ -24,6 +24,7 @@ interface ProjectCardProps {
   project: Project;
   onDelete?: (id: string) => void;
   onDuplicate?: (id: string) => void;
+  onExport?: (id: string) => void;
 }
 
 const statusColors: Record<string, string> = {
@@ -31,6 +32,15 @@ const statusColors: Record<string, string> = {
   in_progress: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
   completed: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
   exported: "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400",
+};
+
+const flowStatusLabels: Record<string, string> = {
+  draft_pending: "待生成",
+  generating: "生成中",
+  draft_ready: "草稿已生成",
+  human_editing: "人工编辑中",
+  exporting: "打包中",
+  export_ready: "可下载",
 };
 
 const typeIcons = {
@@ -51,16 +61,24 @@ const typeBgColors = {
   trademark: "bg-emerald-500/10",
 };
 
-export function ProjectCard({ project, onDelete, onDuplicate }: ProjectCardProps) {
+export function ProjectCard({ project, onDelete, onDuplicate, onExport }: ProjectCardProps) {
   const rawProjectType = (project as any).type ?? (project as any).project_type;
   const projectType: "copyright" | "patent" | "trademark" =
     rawProjectType === "patent" || rawProjectType === "trademark" ? rawProjectType : "copyright";
   const currentStep = (project as any).currentStep ?? (project as any).current_step ?? 1;
+  const flowStatus = (project as any).flow_status as string | undefined;
   const createdAt = (project as any).createdAt ?? (project as any).created_at;
   const updatedAt = (project as any).updatedAt ?? (project as any).updated_at;
   const maxSteps = getMaxSteps(projectType);
   const progressPercentage = ((currentStep - 1) / (maxSteps - 1)) * 100;
   const Icon = typeIcons[projectType] || FileCode;
+  const detailHref = `/project/${project.id}`;
+  const generateHref =
+    projectType === "patent"
+      ? `/project/${project.id}/patent/generate`
+      : projectType === "trademark"
+        ? `/project/${project.id}/trademark/generate`
+        : `/project/${project.id}/copyright/generate`;
 
   const formatDate = (date: Date | string | null) => {
     if (!date) return "-";
@@ -83,11 +101,9 @@ export function ProjectCard({ project, onDelete, onDuplicate }: ProjectCardProps
             <Icon className={cn("h-5 w-5", typeColors[projectType])} />
           </div>
           <div className="min-w-0">
-            <Link href={`/project/${project.id}`}>
-              <h3 className="font-semibold truncate hover:text-primary transition-colors cursor-pointer" data-testid={`link-project-${project.id}`}>
-                {project.name}
-              </h3>
-            </Link>
+            <h3 className="font-semibold truncate" data-testid={`text-project-${project.id}`}>
+              {project.name}
+            </h3>
             <div className="flex items-center gap-2 mt-1 flex-wrap">
               <Badge variant="outline" className="text-xs">
                 {projectTypeLabels[projectType]}
@@ -101,6 +117,11 @@ export function ProjectCard({ project, onDelete, onDuplicate }: ProjectCardProps
               >
                 {projectStatusLabels[project.status]}
               </Badge>
+              {flowStatus ? (
+                <Badge variant="secondary" className="text-xs">
+                  {flowStatusLabels[flowStatus] ?? flowStatus}
+                </Badge>
+              ) : null}
             </div>
           </div>
         </div>
@@ -117,9 +138,15 @@ export function ProjectCard({ project, onDelete, onDuplicate }: ProjectCardProps
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuItem asChild>
-              <Link href={`/project/${project.id}`} className="flex items-center gap-2">
+              <Link href={detailHref} className="flex items-center gap-2">
                 <Edit className="h-4 w-4" />
                 编辑
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <Link href={generateHref} className="flex items-center gap-2">
+                <Sparkles className="h-4 w-4" />
+                生成材料
               </Link>
             </DropdownMenuItem>
             <DropdownMenuItem
@@ -129,7 +156,11 @@ export function ProjectCard({ project, onDelete, onDuplicate }: ProjectCardProps
               <Copy className="h-4 w-4" />
               复制为新版本
             </DropdownMenuItem>
-            <DropdownMenuItem className="flex items-center gap-2">
+            <DropdownMenuItem
+              onClick={() => onExport?.(project.id)}
+              disabled={!onExport}
+              className="flex items-center gap-2"
+            >
               <Download className="h-4 w-4" />
               导出
             </DropdownMenuItem>
@@ -156,6 +187,20 @@ export function ProjectCard({ project, onDelete, onDuplicate }: ProjectCardProps
         <div className="flex items-center justify-between text-xs text-muted-foreground pt-2 border-t">
           <span>创建于 {formatDate(createdAt)}</span>
           <span>更新于 {formatDate(updatedAt)}</span>
+        </div>
+        <div className="flex gap-2">
+          <Link href={detailHref} className="flex-1">
+            <Button size="sm" variant="outline" className="w-full">
+              <Eye className="mr-2 h-4 w-4" />
+              详情
+            </Button>
+          </Link>
+          <Link href={generateHref} className="flex-1">
+            <Button size="sm" className="w-full">
+              <Sparkles className="mr-2 h-4 w-4" />
+              生成
+            </Button>
+          </Link>
         </div>
       </CardContent>
     </Card>

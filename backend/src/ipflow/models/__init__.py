@@ -31,6 +31,7 @@ from ipflow.models.copyright import (
     CopyrightManual,
     ManualScreenshot,
     FileUpload,
+    CopyrightGenerationJob,
 )
 
 # 专利模型
@@ -102,6 +103,7 @@ __all__ = [
     "CopyrightManual",
     "ManualScreenshot",
     "FileUpload",
+    "CopyrightGenerationJob",
     # 专利
     "PatentData",
     "PatentClaim",

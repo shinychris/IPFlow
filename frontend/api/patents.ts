@@ -86,3 +86,35 @@ export const patentExportApi = {
     return response.data as Blob;
   },
 };
+
+export interface StartPatentGenerationPayload {
+  generation_mode: "guided_confirm";
+  inputs: {
+    extra_brief?: string;
+    history_reuse?: { enabled: boolean; source_project_ids: string[] };
+    org_knowledge?: { enabled: boolean; dataset_ids: string[] };
+  };
+  policy: { overwrite_strategy: "fill_blank_only" | "new_revision" };
+}
+
+export const patentGenerationJobsApi = {
+  getContext: (projectId: string): Promise<any> =>
+    get(`/patents/projects/${projectId}/generation-context`),
+  start: (projectId: string, data: StartPatentGenerationPayload): Promise<any> =>
+    post(`/patents/projects/${projectId}/generation-jobs`, data),
+  getById: (jobId: string): Promise<any> =>
+    get(`/patents/generation-jobs/${jobId}`),
+  listByProject: (projectId: string): Promise<any> =>
+    get(`/patents/projects/${projectId}/generation-jobs`),
+  confirmMaterials: (projectId: string): Promise<any> =>
+    post(`/patents/projects/${projectId}/materials/confirm`, {}),
+};
+
+export const patentExportJobsApi = {
+  start: (projectId: string): Promise<any> =>
+    post(`/patents/projects/${projectId}/export-jobs`, {}),
+  getById: (jobId: string): Promise<any> =>
+    get(`/patents/export-jobs/${jobId}`),
+  listByProject: (projectId: string): Promise<any> =>
+    get(`/patents/projects/${projectId}/export-jobs`),
+};

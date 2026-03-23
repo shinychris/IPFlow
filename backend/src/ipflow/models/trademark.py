@@ -10,7 +10,7 @@ from enum import Enum
 
 from sqlalchemy import Column, String, Integer, Text, DateTime, Boolean, ForeignKey
 from sqlalchemy.types import JSON
-from sqlmodel import Field, SQLModel, Relationship
+from sqlmodel import Field, SQLModel
 
 
 class TrademarkType(str, Enum):
@@ -117,6 +117,22 @@ class TrademarkData(SQLModel, table=True):
     registration_number: Optional[str] = Field(
         default=None,
         sa_column=Column(String(50), nullable=True),
+    )
+    source: str = Field(
+        default="human",
+        sa_column=Column(String(20), nullable=False, default="human"),
+    )
+    revision: int = Field(
+        default=1,
+        sa_column=Column(Integer, nullable=False, default=1),
+    )
+    is_confirmed: bool = Field(
+        default=False,
+        sa_column=Column(Boolean, nullable=False, default=False),
+    )
+    last_edited_by: Optional[UUID] = Field(
+        default=None,
+        sa_column=Column(ForeignKey("user.id"), nullable=True),
     )
     
     # 时间戳

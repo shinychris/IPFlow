@@ -71,6 +71,10 @@ class Project(SQLModel, table=True):
         default=1,
         sa_column=Column(Integer, nullable=False, default=1),
     )
+    flow_status: Optional[str] = Field(
+        default=None,
+        sa_column=Column(String(30), nullable=True, index=True),
+    )
     
     # 基本信息
     name: str = Field(
@@ -175,6 +179,7 @@ class ProjectResponse(SQLModel):
     project_type: ProjectType
     status: ProjectStatus
     current_step: int
+    flow_status: Optional[str] = None
     name: str
     version: str
     description: Optional[str] = None
@@ -210,6 +215,7 @@ class ProjectUpdate(SQLModel):
     name: Optional[str] = Field(default=None, min_length=1, max_length=100)
     status: Optional[ProjectStatus] = None
     current_step: Optional[int] = None
+    flow_status: Optional[str] = None
     version: Optional[str] = Field(default=None, max_length=20)
     description: Optional[str] = None
     subject_name: Optional[str] = None

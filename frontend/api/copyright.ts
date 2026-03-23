@@ -4,7 +4,6 @@
 
 import apiClient, { get, post, put, del, uploadFile } from "./client";
 import type {
-  ApiResponse,
   CopyrightData,
   CodeBundle,
   CopyrightManual,
@@ -12,6 +11,9 @@ import type {
   CreateManualRequest,
   ComplianceReport,
   ExportPreview,
+  GenerationContext,
+  GenerationJob,
+  ExportJob,
 } from "@/types";
 
 // 软件信息 API
@@ -140,4 +142,43 @@ export const exportApi = {
     );
     return response.data as Blob;
   },
+};
+
+export interface StartGenerationPayload {
+  generation_mode: "guided_confirm";
+  inputs: {
+    extra_brief?: string;
+    repo?: { provider?: string; url?: string; branch?: string; auth_ref?: string };
+    history_reuse?: { enabled: boolean; source_project_ids: string[] };
+    org_knowledge?: { enabled: boolean; dataset_ids: string[] };
+  };
+  policy: { overwrite_strategy: "fill_blank_only" | "new_revision" };
+}
+
+export const generationJobsApi = {
+  getContext: (projectId: string): Promise<GenerationContext> =>
+    get(`/copyright/projects/${projectId}/generation-context`),
+
+  start: (projectId: string, data: StartGenerationPayload): Promise<GenerationJob> =>
+    post(`/copyright/projects/${projectId}/generation-jobs`, data),
+
+  getById: (jobId: string): Promise<GenerationJob> =>
+    get(`/copyright/generation-jobs/${jobId}`),
+
+  listByProject: (projectId: string): Promise<{ items: GenerationJob[]; total: number }> =>
+    get(`/copyright/projects/${projectId}/generation-jobs`),
+
+  confirmMaterials: (projectId: string): Promise<{ flow_status: string }> =>
+    post(`/copyright/projects/${projectId}/materials/confirm`, {}),
+};
+
+export const exportJobsApi = {
+  start: (projectId: string): Promise<ExportJob> =>
+    post(`/copyright/projects/${projectId}/export-jobs`, {}),
+
+  getById: (jobId: string): Promise<ExportJob> =>
+    get(`/copyright/export-jobs/${jobId}`),
+
+  listByProject: (projectId: string): Promise<{ items: ExportJob[]; total: number }> =>
+    get(`/copyright/projects/${projectId}/export-jobs`),
 };

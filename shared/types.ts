@@ -44,11 +44,23 @@ export const patentStatuses = ["drafting", "reviewing", "filed", "accepted"] as 
 export type PatentStatus = typeof patentStatuses[number];
 
 // === 商标相关枚举 ===
-export const trademarkTypes = ["text", "graphic", "combined", "3d", "sound", "color"] as const;
+export const trademarkTypes = ["word", "device", "composite", "3d", "sound", "color"] as const;
 export type TrademarkType = typeof trademarkTypes[number];
 
 // === 通用枚举 ===
-export const projectStatuses = ["draft", "in_progress", "completed", "exported"] as const;
+export const projectStatuses = [
+  "draft",
+  "in_progress",
+  "reviewing",
+  "pending_submit",
+  "submitted",
+  "accepted",
+  "approved",
+  "rejected",
+  "withdrawn",
+  "completed",
+  "exported",
+] as const;
 export type ProjectStatus = typeof projectStatuses[number];
 
 export const templateTypes = ["web", "mobile", "algorithm", "script", "desktop"] as const;
@@ -66,6 +78,8 @@ export interface Project {
   publicationStatus: PublicationStatus;
   status: ProjectStatus;
   currentStep: number;
+  flowStatus?: string;
+  flow_status?: string;
   createdAt: Date | null;
   updatedAt: Date | null;
 }
@@ -403,9 +417,9 @@ export const patentTypeLabels: Record<PatentType, string> = {
 };
 
 export const trademarkTypeLabels: Record<TrademarkType, string> = {
-  text: "文字商标",
-  graphic: "图形商标",
-  combined: "组合商标",
+  word: "文字商标",
+  device: "图形商标",
+  composite: "组合商标",
   "3d": "三维商标",
   sound: "声音商标",
   color: "颜色商标",
@@ -414,6 +428,13 @@ export const trademarkTypeLabels: Record<TrademarkType, string> = {
 export const projectStatusLabels: Record<ProjectStatus, string> = {
   draft: "草稿",
   in_progress: "进行中",
+  reviewing: "审核中",
+  pending_submit: "待提交",
+  submitted: "已提交",
+  accepted: "已受理",
+  approved: "已通过",
+  rejected: "已驳回",
+  withdrawn: "已撤回",
   completed: "已完成",
   exported: "已导出",
 };

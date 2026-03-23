@@ -68,7 +68,7 @@ export function HeroSection() {
             <div className="flex flex-col sm:flex-row gap-4">
               {ctas.map((cta) => (
                 <Button
-                  key={cta.href}
+                  key={`${cta.href}-${cta.text}`}
                   asChild
                   variant={cta.variant}
                   size="lg"

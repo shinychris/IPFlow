@@ -76,6 +76,9 @@ async def create_project(
         subject_id_number=project_in.subject_id_number,
         status=ProjectStatus.DRAFT,
         current_step=1,
+        flow_status="draft_pending"
+        if project_in.project_type in (ProjectType.COPYRIGHT, ProjectType.PATENT, ProjectType.TRADEMARK)
+        else None,
     )
     
     db.add(project)
@@ -225,6 +228,9 @@ async def duplicate_project(
         meta_info=original.meta_info,
         status=ProjectStatus.DRAFT,
         current_step=1,
+        flow_status="draft_pending"
+        if original.project_type in (ProjectType.COPYRIGHT, ProjectType.PATENT, ProjectType.TRADEMARK)
+        else None,
         created_at=datetime.utcnow(),
         updated_at=datetime.utcnow(),
     )

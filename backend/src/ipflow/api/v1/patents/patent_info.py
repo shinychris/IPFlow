@@ -123,6 +123,10 @@ async def get_patent_info(
         "claims_count": patent_data.claims_count,
         "drawings_count": patent_data.drawings_count,
         "application_number": patent_data.application_number,
+        "source": patent_data.source,
+        "revision": patent_data.revision,
+        "is_confirmed": patent_data.is_confirmed,
+        "last_edited_by": str(patent_data.last_edited_by) if patent_data.last_edited_by else None,
         "created_at": patent_data.created_at.isoformat(),
         "updated_at": patent_data.updated_at.isoformat(),
     }
@@ -171,6 +175,10 @@ async def update_patent_info(
         patent_data.background_art = data.background_art
         patent_data.abstract = data.abstract
         patent_data.abstract_figure_number = data.abstract_figure_number
+        patent_data.source = "human"
+        patent_data.revision += 1
+        patent_data.is_confirmed = False
+        patent_data.last_edited_by = current_user.id
         patent_data.updated_at = datetime.utcnow()
     else:
         # 创建新记录
@@ -182,6 +190,10 @@ async def update_patent_info(
             background_art=data.background_art,
             abstract=data.abstract,
             abstract_figure_number=data.abstract_figure_number,
+            source="human",
+            revision=1,
+            is_confirmed=False,
+            last_edited_by=current_user.id,
         )
         db.add(patent_data)
     
@@ -205,6 +217,10 @@ async def update_patent_info(
         "claims_count": patent_data.claims_count,
         "drawings_count": patent_data.drawings_count,
         "application_number": patent_data.application_number,
+        "source": patent_data.source,
+        "revision": patent_data.revision,
+        "is_confirmed": patent_data.is_confirmed,
+        "last_edited_by": str(patent_data.last_edited_by) if patent_data.last_edited_by else None,
         "created_at": patent_data.created_at.isoformat(),
         "updated_at": patent_data.updated_at.isoformat(),
     }

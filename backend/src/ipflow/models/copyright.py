@@ -9,9 +9,7 @@ from uuid import UUID, uuid4
 
 from sqlalchemy import Column, String, Integer, Text, DateTime, Boolean, ForeignKey
 from sqlalchemy.types import JSON
-from sqlmodel import Field, SQLModel, Relationship
-
-from ipflow.models.enums import ManualTemplateType
+from sqlmodel import Field, SQLModel
 
 
 class CopyrightData(SQLModel, table=True):
@@ -83,6 +81,22 @@ class CopyrightData(SQLModel, table=True):
     target_domain: Optional[str] = Field(
         default=None,
         sa_column=Column(String(100), nullable=True),
+    )
+    source: str = Field(
+        default="human",
+        sa_column=Column(String(20), nullable=False, default="human"),
+    )
+    revision: int = Field(
+        default=1,
+        sa_column=Column(Integer, nullable=False, default=1),
+    )
+    is_confirmed: bool = Field(
+        default=False,
+        sa_column=Column(Boolean, nullable=False, default=False),
+    )
+    last_edited_by: Optional[UUID] = Field(
+        default=None,
+        sa_column=Column(ForeignKey("user.id"), nullable=True),
     )
     
     # 时间戳
@@ -262,6 +276,22 @@ class CopyrightManual(SQLModel, table=True):
         default=False,
         sa_column=Column(Boolean, nullable=False, default=False),
     )
+    source: str = Field(
+        default="human",
+        sa_column=Column(String(20), nullable=False, default="human"),
+    )
+    revision: int = Field(
+        default=1,
+        sa_column=Column(Integer, nullable=False, default=1),
+    )
+    is_confirmed: bool = Field(
+        default=False,
+        sa_column=Column(Boolean, nullable=False, default=False),
+    )
+    last_edited_by: Optional[UUID] = Field(
+        default=None,
+        sa_column=Column(ForeignKey("user.id"), nullable=True),
+    )
     
     # 时间戳
     created_at: datetime = Field(
@@ -394,6 +424,73 @@ class FileUpload(SQLModel, table=True):
     
     # 时间戳
     created_at: datetime = Field(
+        default_factory=datetime.utcnow,
+        sa_column=Column(DateTime, nullable=False),
+    )
+
+
+class CopyrightGenerationJob(SQLModel, table=True):
+    """软著生成与导出任务."""
+
+    __tablename__ = "copyright_generation_job"
+
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    project_id: UUID = Field(
+        sa_column=Column(ForeignKey("project.id"), nullable=False, index=True),
+    )
+    project_type: str = Field(
+        default="copyright",
+        sa_column=Column(String(20), nullable=False, index=True, default="copyright"),
+    )
+    job_domain: str = Field(
+        default="copyright",
+        sa_column=Column(String(20), nullable=False, index=True, default="copyright"),
+    )
+    job_type: str = Field(
+        default="ai_draft",
+        sa_column=Column(String(20), nullable=False, index=True, default="ai_draft"),
+    )
+    status: str = Field(
+        default="queued",
+        sa_column=Column(String(20), nullable=False, index=True, default="queued"),
+    )
+    progress: int = Field(
+        default=0,
+        sa_column=Column(Integer, nullable=False, default=0),
+    )
+    current_step: Optional[str] = Field(
+        default=None,
+        sa_column=Column(String(100), nullable=True),
+    )
+    input_payload: Optional[dict[str, Any]] = Field(
+        default=None,
+        sa_column=Column(JSON, nullable=True),
+    )
+    result_payload: Optional[dict[str, Any]] = Field(
+        default=None,
+        sa_column=Column(JSON, nullable=True),
+    )
+    error_message: Optional[str] = Field(
+        default=None,
+        sa_column=Column(Text, nullable=True),
+    )
+    retry_count: int = Field(
+        default=0,
+        sa_column=Column(Integer, nullable=False, default=0),
+    )
+    started_at: Optional[datetime] = Field(
+        default=None,
+        sa_column=Column(DateTime, nullable=True),
+    )
+    finished_at: Optional[datetime] = Field(
+        default=None,
+        sa_column=Column(DateTime, nullable=True),
+    )
+    created_at: datetime = Field(
+        default_factory=datetime.utcnow,
+        sa_column=Column(DateTime, nullable=False),
+    )
+    updated_at: datetime = Field(
         default_factory=datetime.utcnow,
         sa_column=Column(DateTime, nullable=False),
     )
