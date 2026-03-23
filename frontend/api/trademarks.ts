@@ -75,20 +75,42 @@ export const trademarkExportApi = {
   },
 };
 
+export type TrademarkRepoSourceType = "auto" | "git" | "zip";
+
+export interface StartTrademarkGenerationRepoInput {
+  source_type?: TrademarkRepoSourceType;
+  source_url?: string;
+  ref?: string;
+  url?: string;
+  branch?: string;
+}
+
 export interface StartTrademarkGenerationPayload {
   generation_mode: "guided_confirm";
   inputs: {
     extra_brief?: string;
+    repo?: StartTrademarkGenerationRepoInput;
     history_reuse?: { enabled: boolean; source_project_ids: string[] };
     org_knowledge?: { enabled: boolean; dataset_ids: string[] };
   };
   policy: { overwrite_strategy: "fill_blank_only" | "new_revision" };
 }
 
+export interface StartTrademarkGenerationJobResponse {
+  job_id: string;
+  status: string;
+  progress: number;
+  current_step?: string;
+  estimated_steps?: string[];
+}
+
 export const trademarkGenerationJobsApi = {
   getContext: (projectId: string): Promise<any> =>
     get(`/trademarks/projects/${projectId}/generation-context`),
-  start: (projectId: string, data: StartTrademarkGenerationPayload): Promise<any> =>
+  start: (
+    projectId: string,
+    data: StartTrademarkGenerationPayload
+  ): Promise<StartTrademarkGenerationJobResponse> =>
     post(`/trademarks/projects/${projectId}/generation-jobs`, data),
   getById: (jobId: string): Promise<any> =>
     get(`/trademarks/generation-jobs/${jobId}`),

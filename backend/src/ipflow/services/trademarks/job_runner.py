@@ -2,13 +2,15 @@
 
 from __future__ import annotations
 
+import zipfile
 from datetime import datetime
 from io import BytesIO
-import zipfile
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from ipflow.api.v1.trademarks.export import generate_trademark_text
+from ipflow.config import get_settings
 from ipflow.models import (
     CopyrightGenerationJob,
     NiceClassification,
@@ -17,15 +19,24 @@ from ipflow.models import (
     TrademarkData,
     TrademarkNiceClass,
 )
-from ipflow.services.trademarks.ai_generator import TrademarkAIGenerator
-from ipflow.api.v1.trademarks.export import generate_trademark_text
+from ipflow.schemas.generation_repo import parse_repo_input_from_payload
+from ipflow.services.copyright.source_fetcher import (
+    SourceFetchError,
+    cleanup_job_source_directory,
+)
+from ipflow.services.generation.code_root import fetch_code_root_for_job
+from ipflow.services.generation.provider_invoke import invoke_material_draft_provider
+from ipflow.services.trademarks.draft_providers import (
+    TemplateTrademarkDraftProvider,
+    get_trademark_draft_provider,
+)
 
 
 class TrademarkJobRunner:
     def __init__(self) -> None:
-        self.ai_generator = TrademarkAIGenerator()
+        pass
 
-    async def run_generation_job(
+    async def run_generation_job(  # noqa: C901
         self,
         db: AsyncSession,
         *,
@@ -39,8 +50,40 @@ class TrademarkJobRunner:
         job.updated_at = datetime.utcnow()
         await db.commit()
 
+        settings = get_settings()
+        provider = get_trademark_draft_provider(settings)
+        should_cleanup_source = False
+        code_root = None
+
         try:
-            draft = self.ai_generator.generate(project, job.input_payload)
+            active = parse_repo_input_from_payload(job.input_payload)
+            if active and active.effective_source_url():
+                job.progress = 15
+                job.current_step = "拉取源码"
+                job.updated_at = datetime.utcnow()
+                await db.commit()
+
+            code_root, should_cleanup_source = await fetch_code_root_for_job(
+                job.id,
+                job.input_payload,
+                settings=settings,
+            )
+
+            job.progress = 25
+            job.current_step = "生成商标草稿"
+            job.updated_at = datetime.utcnow()
+            await db.commit()
+
+            draft = await invoke_material_draft_provider(
+                settings,
+                backend_setting="TRADEMARK_DRAFT_BACKEND",
+                fallback_setting="TRADEMARK_DRAFT_FALLBACK_TO_TEMPLATE",
+                provider=provider,
+                template_factory=TemplateTrademarkDraftProvider,
+                project=project,
+                payload=job.input_payload or {},
+                code_root=code_root,
+            )
             result = await db.execute(select(TrademarkData).where(TrademarkData.project_id == project.id))
             trademark_data = result.scalar_one_or_none()
             if not trademark_data:
@@ -70,7 +113,6 @@ class TrademarkJobRunner:
                 trademark_data.is_confirmed = False
                 trademark_data.updated_at = datetime.utcnow()
 
-            # 重建推荐类别（保留简单实现）
             result = await db.execute(
                 select(TrademarkNiceClass).where(TrademarkNiceClass.trademark_data_id == trademark_data.id)
             )
@@ -107,14 +149,29 @@ class TrademarkJobRunner:
             await db.commit()
             await db.refresh(job)
             return job
+        except SourceFetchError as exc:
+            job.status = "failed"
+            job.error_message = str(exc)
+            job.finished_at = datetime.utcnow()
+            job.updated_at = datetime.utcnow()
+            project.flow_status = "draft_pending"
+            project.updated_at = datetime.utcnow()
+            await db.commit()
+            await db.refresh(job)
+            return job
         except Exception as exc:
             job.status = "failed"
             job.error_message = str(exc)
             job.finished_at = datetime.utcnow()
             job.updated_at = datetime.utcnow()
+            project.flow_status = "draft_pending"
+            project.updated_at = datetime.utcnow()
             await db.commit()
             await db.refresh(job)
             return job
+        finally:
+            if should_cleanup_source:
+                cleanup_job_source_directory(job.id, settings)
 
     async def run_export_job(
         self,

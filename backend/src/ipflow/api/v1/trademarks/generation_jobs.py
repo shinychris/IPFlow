@@ -5,23 +5,26 @@ from __future__ import annotations
 from datetime import datetime
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from pydantic import BaseModel, Field
 from sqlalchemy import desc, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ipflow.api.deps import require_active_user
+from ipflow.config import get_settings
 from ipflow.db import get_db
 from ipflow.models import CopyrightGenerationJob, Project, ProjectType, TrademarkData
 from ipflow.models.user import User
-from ipflow.services.trademarks.job_runner import TrademarkJobRunner
+from ipflow.schemas.generation_repo import RepoInput
+from ipflow.services.copyright.claude_code_runner import check_trademark_claude_code_ready
+from ipflow.services.trademarks.background_tasks import run_trademark_generation_background
 
 router = APIRouter()
-runner = TrademarkJobRunner()
 
 
 class GenerationInputs(BaseModel):
     extra_brief: str | None = None
+    repo: RepoInput | None = None
     history_reuse: dict | None = None
     org_knowledge: dict | None = None
 
@@ -52,6 +55,8 @@ async def get_generation_context(
     project = result.scalar_one_or_none()
     if not project:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="项目不存在")
+    settings = get_settings()
+    allowed_hosts = settings.source_fetch_allowed_hosts_list
     return {
         "project_id": str(project.id),
         "project_type": project.project_type.value,
@@ -68,7 +73,11 @@ async def get_generation_context(
         "capability_flags": {
             "can_use_history": False,
             "can_use_org_knowledge": False,
-            "can_use_repo": False,
+            "can_use_repo": True,
+        },
+        "repo_hint": {
+            "supported_modes": ["git_https", "git_ssh", "zip_direct"],
+            "remote_fetch_configured": bool(allowed_hosts),
         },
     }
 
@@ -77,6 +86,7 @@ async def get_generation_context(
 async def start_generation_job(
     project_id: UUID,
     request: StartGenerationRequest,
+    background_tasks: BackgroundTasks,
     current_user: User = Depends(require_active_user),
     db: AsyncSession = Depends(get_db),
 ) -> dict:
@@ -90,6 +100,14 @@ async def start_generation_job(
     project = result.scalar_one_or_none()
     if not project:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="项目不存在")
+
+    ready_err = check_trademark_claude_code_ready()
+    if ready_err:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=ready_err,
+        )
+
     project.flow_status = "generating"
     project.updated_at = datetime.utcnow()
     job = CopyrightGenerationJob(
@@ -100,13 +118,23 @@ async def start_generation_job(
         status="queued",
         progress=0,
         current_step="等待执行",
-        input_payload=request.model_dump(),
+        input_payload=request.model_dump(mode="json"),
     )
     db.add(job)
     await db.commit()
     await db.refresh(job)
-    await runner.run_generation_job(db, job=job, project=project)
-    return {"job_id": str(job.id), "status": job.status, "progress": job.progress}
+    background_tasks.add_task(
+        run_trademark_generation_background,
+        job.id,
+        project.id,
+    )
+    return {
+        "job_id": str(job.id),
+        "status": job.status,
+        "progress": job.progress,
+        "current_step": job.current_step,
+        "estimated_steps": ["拉取源码", "生成商标信息", "推荐尼斯分类", "保存草稿"],
+    }
 
 
 @router.get("/generation-jobs/{job_id}", response_model=dict)

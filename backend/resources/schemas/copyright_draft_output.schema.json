@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "CopyrightDraftStructuredOutput",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["software_info", "manual"],
+  "properties": {
+    "software_info": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "software_full_name",
+        "software_short_name",
+        "version_number",
+        "development_language",
+        "development_environment",
+        "runtime_environment",
+        "functional_description",
+        "technical_features",
+        "target_domain"
+      ],
+      "properties": {
+        "software_full_name": { "type": "string" },
+        "software_short_name": { "type": "string" },
+        "version_number": { "type": "string" },
+        "development_language": { "type": "string" },
+        "development_environment": { "type": "string" },
+        "runtime_environment": { "type": "string" },
+        "code_line_count": { "type": ["integer", "null"] },
+        "functional_description": { "type": "string" },
+        "technical_features": { "type": "string" },
+        "target_domain": { "type": "string" },
+        "source": { "type": "string" }
+      }
+    },
+    "manual": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["template_type", "title", "content_html"],
+      "properties": {
+        "template_type": { "type": "string" },
+        "title": { "type": "string" },
+        "content_html": { "type": "string" },
+        "content_json": { "type": ["object", "array", "null"] },
+        "source": { "type": "string" }
+      }
+    }
+  }
+}

@@ -176,3 +176,35 @@
 | 阶段一 | 前端 AI 按钮和交互框架 | 进行中 |
 | 阶段二 | 后端 AI 接口和 Prompt 工程 | 待开发 |
 | 阶段三 | AI 智能问答集成 | 待规划 |
+| 材料一体化生成 | 见下文「Claude Code 材料一体化生成」 | 已实现（可选部署） |
+
+---
+
+## 六、Claude Code 材料一体化生成（已实现）
+
+在**专用受控环境**中，可通过本机 **Claude Code CLI**（`claude -p` 无头模式）为**软著、专利、商标**批量生成可落库的草稿（软件信息与说明书 / 专利信息与权利要求及说明书结构 / 商标信息与尼斯分类推荐）。与上文「按字段点状调用 `/api/ai/...`」的规划可并存：当前一体化生成走 **生成任务 API**，不依赖交互式 slash command。
+
+### 6.1 行为概要
+
+| 项目 | 说明 |
+|------|------|
+| 后端开关 | `COPYRIGHT_DRAFT_BACKEND`、`PATENT_DRAFT_BACKEND`、`TRADEMARK_DRAFT_BACKEND`：`template`（默认）或 `claude_code` |
+| 技能注入 | 仓库内版本化 `SKILL.md` + `--append-system-prompt-file`（headless 下不可用 `/技能名`） |
+| 结构化输出 | `--output-format json` + `--json-schema`，解析 `structured_output` 后写入各业务表 |
+| 资源路径 | `backend/resources/skills/*`、`backend/resources/schemas/*.schema.json` |
+| 可选源码 | 请求体 `inputs.repo`（`source_url`、`source_type`、`ref`）；仅当填写链接时拉取 **Git HTTPS/SSH** 或 **直链 zip** |
+| 安全 | `SOURCE_FETCH_ALLOWED_HOSTS` 为空则**禁止**任何远程拉取；逗号分隔允许的主机名 |
+| 异步 | `POST .../generation-jobs` 入队后由 **FastAPI BackgroundTasks** 执行（新 DB 会话）；进程重启可能导致任务停在 `queued` |
+| 回退 | 各业务 `*_DRAFT_FALLBACK_TO_TEMPLATE`：Claude 失败时是否回退模板（默认 false） |
+
+### 6.2 相关 API
+
+- 软著：`POST /api/v1/copyright/projects/{id}/generation-jobs`
+- 专利：`POST /api/v1/patents/projects/{id}/generation-jobs`
+- 商标：`POST /api/v1/trademarks/projects/{id}/generation-jobs`
+
+上下文接口均返回 `repo_hint`（是否已配置远程拉取等）。启用 `claude_code` 时，创建任务前会校验 CLI 与技能/Schema 文件是否存在（不可用则 **503**）。
+
+### 6.3 配置与开发说明
+
+详见仓库根目录 **AGENTS.md**（「材料 AI：Claude Code CLI」）及 **backend/.env.example**。共享模型：`ipflow/schemas/generation_repo.py`（`RepoInput`）。

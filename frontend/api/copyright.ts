@@ -144,22 +144,47 @@ export const exportApi = {
   },
 };
 
+export type RepoSourceType = "auto" | "git" | "zip";
+
+export interface StartGenerationRepoInput {
+  source_type?: RepoSourceType;
+  source_url?: string;
+  ref?: string;
+  /** @deprecated 使用 source_url */
+  url?: string;
+  /** @deprecated 使用 ref */
+  branch?: string;
+  provider?: string;
+}
+
 export interface StartGenerationPayload {
   generation_mode: "guided_confirm";
   inputs: {
     extra_brief?: string;
-    repo?: { provider?: string; url?: string; branch?: string; auth_ref?: string };
+    repo?: StartGenerationRepoInput;
     history_reuse?: { enabled: boolean; source_project_ids: string[] };
     org_knowledge?: { enabled: boolean; dataset_ids: string[] };
   };
   policy: { overwrite_strategy: "fill_blank_only" | "new_revision" };
 }
 
+/** POST /generation-jobs 响应 */
+export interface StartGenerationJobResponse {
+  job_id: string;
+  status: string;
+  progress: number;
+  current_step?: string;
+  estimated_steps?: string[];
+}
+
 export const generationJobsApi = {
   getContext: (projectId: string): Promise<GenerationContext> =>
     get(`/copyright/projects/${projectId}/generation-context`),
 
-  start: (projectId: string, data: StartGenerationPayload): Promise<GenerationJob> =>
+  start: (
+    projectId: string,
+    data: StartGenerationPayload
+  ): Promise<StartGenerationJobResponse> =>
     post(`/copyright/projects/${projectId}/generation-jobs`, data),
 
   getById: (jobId: string): Promise<GenerationJob> =>

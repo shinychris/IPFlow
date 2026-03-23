@@ -1,0 +1,63 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PatentDraftStructuredOutput",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["patent_info", "claims", "description"],
+  "properties": {
+    "patent_info": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "patent_type",
+        "title",
+        "technical_field",
+        "background_art",
+        "abstract",
+        "abstract_figure_number"
+      ],
+      "properties": {
+        "patent_type": { "type": "string" },
+        "title": { "type": "string" },
+        "technical_field": { "type": "string" },
+        "background_art": { "type": "string" },
+        "abstract": { "type": "string" },
+        "abstract_figure_number": { "type": ["string", "null"] }
+      }
+    },
+    "claims": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["claim_number", "claim_type", "parent_claim_number", "content"],
+        "properties": {
+          "claim_number": { "type": "integer" },
+          "claim_type": { "type": "string" },
+          "parent_claim_number": { "type": ["integer", "null"] },
+          "content": { "type": "string" }
+        }
+      }
+    },
+    "description": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["technical_field", "background_art", "invention_content", "implementation"],
+      "properties": {
+        "technical_field": { "type": "string" },
+        "background_art": { "type": "string" },
+        "invention_content": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["problem_solved", "technical_solution", "beneficial_effects"],
+          "properties": {
+            "problem_solved": { "type": "string" },
+            "technical_solution": { "type": "string" },
+            "beneficial_effects": { "type": "string" }
+          }
+        },
+        "implementation": { "type": "string" }
+      }
+    }
+  }
+}

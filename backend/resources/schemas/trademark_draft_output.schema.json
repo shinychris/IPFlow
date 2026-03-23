@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "TrademarkDraftStructuredOutput",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["trademark_info", "nice_classes"],
+  "properties": {
+    "trademark_info": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "trademark_type",
+        "trademark_name",
+        "description",
+        "design_description",
+        "color_claim",
+        "special_notes"
+      ],
+      "properties": {
+        "trademark_type": { "type": "string" },
+        "trademark_name": { "type": "string" },
+        "description": { "type": "string" },
+        "design_description": { "type": ["string", "null"] },
+        "color_claim": { "type": ["string", "null"] },
+        "special_notes": { "type": ["string", "null"] }
+      }
+    },
+    "nice_classes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["class_number", "goods_services"],
+        "properties": {
+          "class_number": { "type": "integer" },
+          "goods_services": {
+            "type": "array",
+            "items": { "type": "string" }
+          }
+        }
+      }
+    }
+  }
+}

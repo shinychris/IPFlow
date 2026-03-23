@@ -92,6 +92,8 @@ uv pip install -e ".[dev]"
 # 配置环境变量
 cp .env.example .env
 # 编辑 .env 文件，配置数据库连接等
+# 可选：启用 Claude Code 生成软著/专利/商标草稿时，参见 backend/.env.example 中
+# COPYRIGHT_DRAFT_BACKEND、PATENT_DRAFT_BACKEND、TRADEMARK_DRAFT_BACKEND 与 SOURCE_FETCH_* 说明
 ```
 
 #### 4. 数据库迁移

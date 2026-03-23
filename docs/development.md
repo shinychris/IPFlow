@@ -1,5 +1,7 @@
 # IPFlow 开发指南
 
+> **材料 AI（Claude Code，可选）**：若部署环境需要由本机 `claude` CLI 生成软著/专利/商标一体化草稿，请参阅根目录 [AGENTS.md](../AGENTS.md) 中「材料 AI：Claude Code CLI」及 `backend/.env.example` 中的 `COPYRIGHT_DRAFT_BACKEND`、`PATENT_DRAFT_BACKEND`、`TRADEMARK_DRAFT_BACKEND` 与 `SOURCE_FETCH_*` 等变量。产品设计层面的说明见 [AI辅助功能设计.md](./AI辅助功能设计.md) 第六节。
+
 ## 1. 开发环境搭建
 
 ### 1.1 前置要求

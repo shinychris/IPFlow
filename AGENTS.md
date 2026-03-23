@@ -298,6 +298,20 @@ trademark_types = ["text", "graphic", "combined", "3d", "sound", "color"]
 }
 ```
 
+### 材料 AI：Claude Code CLI（可选）
+
+专用部署机上可通过 **Claude Code** 无头模式（`claude -p`）生成软著/专利/商标草稿；交互式 `/技能` 在 headless 下不可用，故使用仓库内版本化的 **SKILL.md** + `--append-system-prompt-file` 注入，结构化输出由 **JSON Schema** 约束（`--output-format json --json-schema`）。
+
+| 配置项 | 说明 |
+|--------|------|
+| `COPYRIGHT_DRAFT_BACKEND` / `PATENT_DRAFT_BACKEND` / `TRADEMARK_DRAFT_BACKEND` | `template`（默认）或 `claude_code` |
+| `*_DRAFT_FALLBACK_TO_TEMPLATE` | Claude 失败时是否回退模板 |
+| `CLAUDE_CODE_BIN` / `CLAUDE_CODE_*` | CLI 路径、超时、`--bare`、`--allowedTools`、`ANTHROPIC_API_KEY` 或 `CLAUDE_CODE_SETTINGS_FILE` |
+| 各业务 `CLAUDE_CODE_*_SKILL_PROMPT_FILE` / `*_OUTPUT_SCHEMA_PATH` | 技能与 Schema 路径（相对 `backend/`） |
+| `SOURCE_FETCH_*` | 用户填写 `inputs.repo.source_url` 时拉取 Git（HTTPS/SSH）或直链 zip；**`SOURCE_FETCH_ALLOWED_HOSTS` 为空则禁止任何远程拉取** |
+
+资源目录：`backend/resources/skills/`、`backend/resources/schemas/`。共享请求模型：`ipflow/schemas/generation_repo.py`（`RepoInput`）。生成任务经 **FastAPI `BackgroundTasks`** 异步执行（新 DB 会话）；进程重启可能导致任务停留在 `queued`。
+
 ---
 
 ## 8. 测试策略
@@ -355,6 +369,10 @@ REFRESH_TOKEN_EXPIRE_DAYS=7
 ENABLE_AI_ASSISTANT=true
 AI_PROVIDER=ollama
 OLLAMA_BASE_URL=http://localhost:11434
+
+# 材料草稿（Claude Code CLI，可选）见 backend/.env.example：
+# COPYRIGHT_DRAFT_BACKEND / PATENT_DRAFT_BACKEND / TRADEMARK_DRAFT_BACKEND
+# 及 SOURCE_FETCH_ALLOWED_HOSTS 等
 ```
 
 ### 前端 (.env.local)

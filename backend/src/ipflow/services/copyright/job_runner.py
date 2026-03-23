@@ -3,31 +3,42 @@
 from __future__ import annotations
 
 from datetime import datetime
+from pathlib import Path
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from ipflow.config import get_settings
 from ipflow.models import (
-    Project,
-    CopyrightData,
-    CopyrightManual,
-    CopyrightGenerationJob,
     CodeBundle,
+    CopyrightData,
+    CopyrightGenerationJob,
+    CopyrightManual,
+    Project,
 )
-from ipflow.services.copyright.ai_generator import CopyrightAIGenerator
+from ipflow.schemas.generation_repo import parse_repo_input_from_payload
 from ipflow.services.copyright.compliance_checker import ComplianceChecker
+from ipflow.services.copyright.draft_providers import (
+    TemplateCopyrightDraftProvider,
+    get_copyright_draft_provider,
+)
 from ipflow.services.copyright.export_generator import ExportConfig, ExportGenerator
+from ipflow.services.copyright.source_fetcher import (
+    SourceFetchError,
+    cleanup_job_source_directory,
+)
+from ipflow.services.generation.code_root import fetch_code_root_for_job
+from ipflow.services.generation.provider_invoke import invoke_material_draft_provider
 
 
 class CopyrightJobRunner:
     """执行软著生成与导出任务."""
 
     def __init__(self) -> None:
-        self.ai_generator = CopyrightAIGenerator()
         self.export_generator = ExportGenerator()
         self.compliance_checker = ComplianceChecker()
 
-    async def run_generation_job(
+    async def run_generation_job(  # noqa: C901
         self,
         db: AsyncSession,
         *,
@@ -42,8 +53,40 @@ class CopyrightJobRunner:
         job.updated_at = datetime.utcnow()
         await db.commit()
 
+        settings = get_settings()
+        provider = get_copyright_draft_provider(settings)
+        code_root: Path | None = None
+        should_cleanup_source = False
+
         try:
-            draft = self.ai_generator.generate(project, job.input_payload)
+            active = parse_repo_input_from_payload(job.input_payload)
+            if active and active.effective_source_url():
+                job.progress = 15
+                job.current_step = "拉取源码"
+                job.updated_at = datetime.utcnow()
+                await db.commit()
+
+            code_root, should_cleanup_source = await fetch_code_root_for_job(
+                job.id,
+                job.input_payload,
+                settings=settings,
+            )
+
+            job.progress = 25
+            job.current_step = "生成草稿"
+            job.updated_at = datetime.utcnow()
+            await db.commit()
+
+            draft = await invoke_material_draft_provider(
+                settings,
+                backend_setting="COPYRIGHT_DRAFT_BACKEND",
+                fallback_setting="COPYRIGHT_DRAFT_FALLBACK_TO_TEMPLATE",
+                provider=provider,
+                template_factory=TemplateCopyrightDraftProvider,
+                project=project,
+                payload=job.input_payload or {},
+                code_root=code_root,
+            )
 
             result = await db.execute(
                 select(CopyrightData).where(CopyrightData.project_id == project.id)
@@ -128,14 +171,29 @@ class CopyrightJobRunner:
             await db.commit()
             await db.refresh(job)
             return job
+        except SourceFetchError as exc:
+            job.status = "failed"
+            job.error_message = str(exc)
+            job.finished_at = datetime.utcnow()
+            job.updated_at = datetime.utcnow()
+            project.flow_status = "draft_pending"
+            project.updated_at = datetime.utcnow()
+            await db.commit()
+            await db.refresh(job)
+            return job
         except Exception as exc:
             job.status = "failed"
             job.error_message = str(exc)
             job.finished_at = datetime.utcnow()
             job.updated_at = datetime.utcnow()
+            project.flow_status = "draft_pending"
+            project.updated_at = datetime.utcnow()
             await db.commit()
             await db.refresh(job)
             return job
+        finally:
+            if should_cleanup_source:
+                cleanup_job_source_directory(job.id, settings)
 
     async def run_export_job(
         self,

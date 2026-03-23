@@ -87,20 +87,42 @@ export const patentExportApi = {
   },
 };
 
+export type PatentRepoSourceType = "auto" | "git" | "zip";
+
+export interface StartPatentGenerationRepoInput {
+  source_type?: PatentRepoSourceType;
+  source_url?: string;
+  ref?: string;
+  url?: string;
+  branch?: string;
+}
+
 export interface StartPatentGenerationPayload {
   generation_mode: "guided_confirm";
   inputs: {
     extra_brief?: string;
+    repo?: StartPatentGenerationRepoInput;
     history_reuse?: { enabled: boolean; source_project_ids: string[] };
     org_knowledge?: { enabled: boolean; dataset_ids: string[] };
   };
   policy: { overwrite_strategy: "fill_blank_only" | "new_revision" };
 }
 
+export interface StartPatentGenerationJobResponse {
+  job_id: string;
+  status: string;
+  progress: number;
+  current_step?: string;
+  estimated_steps?: string[];
+}
+
 export const patentGenerationJobsApi = {
   getContext: (projectId: string): Promise<any> =>
     get(`/patents/projects/${projectId}/generation-context`),
-  start: (projectId: string, data: StartPatentGenerationPayload): Promise<any> =>
+  start: (
+    projectId: string,
+    data: StartPatentGenerationPayload
+  ): Promise<StartPatentGenerationJobResponse> =>
     post(`/patents/projects/${projectId}/generation-jobs`, data),
   getById: (jobId: string): Promise<any> =>
     get(`/patents/generation-jobs/${jobId}`),

@@ -211,6 +211,10 @@ export interface GenerationContext {
     can_use_history: boolean;
     can_use_org_knowledge: boolean;
   };
+  repo_hint?: {
+    supported_modes: string[];
+    remote_fetch_configured: boolean;
+  };
   draft_exists: boolean;
 }
 
