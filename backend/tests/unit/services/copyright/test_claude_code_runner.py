@@ -98,6 +98,14 @@ def test_run_copyright_claude_draft_parses_structured_output(
         assert dr.software_info["software_full_name"] == "测试项目"
         assert "<p>hi</p>" in dr.manual["content_html"]
         run_mock.assert_called_once()
+        call_kw = run_mock.call_args.kwargs
+        assert call_kw["cwd"] == str(skill.parent.resolve())
+        assert call_kw.get("env", {}).get("PYTHONIOENCODING") == "utf-8"
+        argv = run_mock.call_args.args[0]
+        p_idx = list(argv).index("-p")
+        prompt = argv[p_idx + 1]
+        assert '"task": "ipflow_structured_material_draft"' in prompt
+        assert '"extra_brief": "brief"' in prompt
 
 
 def test_run_copyright_claude_draft_nonzero_exit(

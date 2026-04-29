@@ -197,8 +197,13 @@ export interface GenerationContext {
   base_profile: {
     name: string;
     version: string;
-    description?: string;
-    subject_name?: string;
+    description?: string | null;
+    subject_name?: string | null;
+    subject_type?: string | null;
+    development_method?: string | null;
+    publication_status?: string | null;
+    completion_date?: string | null;
+    first_publication_date?: string | null;
   };
   optional_inputs: {
     code_repo?: unknown;
@@ -215,7 +220,8 @@ export interface GenerationContext {
     supported_modes: string[];
     remote_fetch_configured: boolean;
   };
-  draft_exists: boolean;
+  /** 软著上下文返回；专利/商标可能省略 */
+  draft_exists?: boolean;
 }
 
 export interface GenerationJob {

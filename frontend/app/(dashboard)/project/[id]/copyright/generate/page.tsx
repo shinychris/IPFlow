@@ -145,6 +145,7 @@ export default function CopyrightGeneratePage() {
             <>
               <p>项目名称：{context?.base_profile?.name ?? "-"}</p>
               <p>版本号：{context?.base_profile?.version ?? "-"}</p>
+              <p>权利人/申请人：{context?.base_profile?.subject_name ?? "-"}</p>
               <p>已有草稿：{context?.draft_exists ? "是" : "否"}</p>
             </>
           )}

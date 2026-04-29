@@ -4,9 +4,11 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import shutil
 import subprocess
-import tempfile
+import sys
+from datetime import date
 from pathlib import Path
 from typing import Any
 
@@ -111,6 +113,80 @@ def _build_claude_argv(
     return cmd
 
 
+def _json_safe_project_fields(project: Project) -> dict[str, Any]:
+    """将项目模型中与材料相关的字段序列化进传给 CLI 的用户 JSON."""
+
+    def _date_iso(d: date | None) -> str | None:
+        return d.isoformat() if d else None
+
+    st = getattr(project, "subject_type", None)
+    st_val = st.value if st is not None and hasattr(st, "value") else st
+
+    return {
+        "id": str(project.id),
+        "name": project.name,
+        "version": project.version,
+        "description": project.description,
+        "subject_type": st_val,
+        "subject_name": getattr(project, "subject_name", None),
+        "development_method": getattr(project, "development_method", None),
+        "publication_status": getattr(project, "publication_status", None),
+        "completion_date": _date_iso(getattr(project, "completion_date", None)),
+        "first_publication_date": _date_iso(getattr(project, "first_publication_date", None)),
+        "meta_info": getattr(project, "meta_info", None),
+    }
+
+
+def _repo_for_prompt(repo_raw: Any) -> dict[str, Any] | None:
+    """从 inputs.repo 提取可交给模型的字段（兼容 url / branch）."""
+    if not isinstance(repo_raw, dict):
+        return None
+    url = (repo_raw.get("source_url") or repo_raw.get("url") or "").strip()
+    if not url:
+        return None
+    ref = repo_raw.get("ref") if repo_raw.get("ref") is not None else repo_raw.get("branch")
+    ref_s = str(ref).strip() if ref is not None else ""
+    return {
+        "source_type": repo_raw.get("source_type"),
+        "source_url": url,
+        "ref": ref_s or None,
+    }
+
+
+def build_claude_user_json_payload(
+    project: Project,
+    inputs: dict[str, Any],
+    code_root: Path | None,
+    skill_root: Path,
+) -> dict[str, Any]:
+    """构造传给 `claude -p` 的 JSON：与用户表单一致的结构 + 路径指引."""
+    root = (inputs or {}) if isinstance(inputs, dict) else {}
+    inner = root.get("inputs") if isinstance(root.get("inputs"), dict) else {}
+
+    return {
+        "task": "ipflow_structured_material_draft",
+        "generation_mode": root.get("generation_mode"),
+        "policy": root.get("policy"),
+        "project": _json_safe_project_fields(project),
+        "inputs": {
+            "extra_brief": inner.get("extra_brief"),
+            "repo": _repo_for_prompt(inner.get("repo")),
+            "history_reuse": inner.get("history_reuse"),
+            "org_knowledge": inner.get("org_knowledge"),
+        },
+        "paths": {
+            "skill_root": str(skill_root.resolve()),
+            "code_root": str(code_root.resolve()) if code_root and code_root.is_dir() else None,
+        },
+        "instructions": (
+            "根据 project 与 inputs 生成符合 Schema 的材料草稿。"
+            "若 paths.code_root 非空，请用 Read（及如已允许的 Bash）分析该目录下的用户源码或打包内容。"
+            "当前工作目录为技能包根目录 paths.skill_root，脚本与 references 使用相对该目录的路径。"
+            "输出必须符合 CLI 所附 JSON Schema（structured_output）。"
+        ),
+    }
+
+
 def structured_output_dict_from_stdout(stdout: str) -> dict[str, Any]:
     """解析 CLI JSON  stdout 中的 structured_output 对象."""
     try:
@@ -140,41 +216,33 @@ def run_structured_claude_skill(
     cfg = settings or get_settings()
     schema_text = schema_path.read_text(encoding="utf-8")
 
-    inner = (inputs or {}).get("inputs") or {}
-    user_payload = {
-        "project": {
-            "id": str(project.id),
-            "name": project.name,
-            "version": project.version,
-            "description": project.description,
-            "subject_name": getattr(project, "subject_name", None),
-        },
-        "extra_brief": inner.get("extra_brief"),
-        "policy": (inputs or {}).get("policy"),
-        "code_root": str(code_root.resolve()) if code_root else None,
-    }
-    prompt = json.dumps(user_payload, ensure_ascii=False)
+    skill_root = skill_path.resolve().parent
+    user_payload = build_claude_user_json_payload(project, inputs, code_root, skill_root)
+    prompt = json.dumps(user_payload, ensure_ascii=False, default=str)
     cmd = _build_claude_argv(cfg, prompt, skill_path, schema_text)
 
-    tmp_cwd: Path | None = None
-    if code_root and code_root.is_dir():
-        cwd = str(code_root.resolve())
-    else:
-        tmp_cwd = Path(tempfile.mkdtemp(prefix="ipflow-claude-cwd-"))
-        cwd = str(tmp_cwd)
+    cwd = str(skill_root)
+    run_env = os.environ.copy()
+    run_env.setdefault("PYTHONIOENCODING", "utf-8")
+    if sys.platform != "win32":
+        run_env.setdefault("LC_ALL", "C.UTF-8")
+        run_env.setdefault("LANG", "C.UTF-8")
 
+    logger.info("claude_code_invoking", extra={"cwd": cwd, "skill": str(skill_path)})
     try:
-        logger.info("claude_code_invoking", extra={"cwd": cwd, "skill": str(skill_path)})
         proc = subprocess.run(  # noqa: S603
             cmd,
             cwd=cwd,
             capture_output=True,
             text=True,
             timeout=max(30, cfg.CLAUDE_CODE_TIMEOUT_SECONDS),
+            env=run_env,
         )
-    finally:
-        if tmp_cwd and tmp_cwd.exists():
-            shutil.rmtree(tmp_cwd, ignore_errors=True)
+    except subprocess.TimeoutExpired as e:
+        raise ClaudeCodeRunnerError(
+            f"Claude Code 执行超时（{cfg.CLAUDE_CODE_TIMEOUT_SECONDS} 秒），可调大 "
+            "CLAUDE_CODE_TIMEOUT_SECONDS 或缩小拉取的源码范围后重试。",
+        ) from e
 
     if proc.returncode != 0:
         err = (proc.stderr or proc.stdout or "")[:4000]

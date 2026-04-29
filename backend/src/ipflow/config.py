@@ -145,8 +145,8 @@ class Settings(BaseSettings):
         description="专利 Claude Code 失败时是否回退模板",
     )
     CLAUDE_CODE_PATENT_SKILL_PROMPT_FILE: str = Field(
-        default="resources/skills/patent-application/SKILL.md",
-        description="专利技能系统提示文件",
+        default="resources/skills/china-patent-application/SKILL.md",
+        description="专利技能系统提示文件（仓库内 china-patent-application 包）",
     )
     CLAUDE_CODE_PATENT_OUTPUT_SCHEMA_PATH: str = Field(
         default="resources/schemas/patent_draft_output.schema.json",
@@ -163,8 +163,8 @@ class Settings(BaseSettings):
         description="商标 Claude Code 失败时是否回退模板",
     )
     CLAUDE_CODE_TRADEMARK_SKILL_PROMPT_FILE: str = Field(
-        default="resources/skills/trademark-application/SKILL.md",
-        description="商标技能系统提示文件",
+        default="resources/skills/china-trademark-application/SKILL.md",
+        description="商标技能系统提示文件（仓库内 china-trademark-application 包）",
     )
     CLAUDE_CODE_TRADEMARK_OUTPUT_SCHEMA_PATH: str = Field(
         default="resources/schemas/trademark_draft_output.schema.json",
@@ -217,8 +217,8 @@ class Settings(BaseSettings):
         """将相对 backend 根的路径解析为绝对路径."""
         p = Path(path_str)
         if p.is_absolute():
-            return p
-        return self.backend_root / p
+            return p.resolve()
+        return (self.backend_root / p).resolve()
 
     @property
     def source_fetch_allowed_hosts_list(self) -> list[str]:
