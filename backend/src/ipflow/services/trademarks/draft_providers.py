@@ -95,8 +95,19 @@ class ClaudeTrademarkDraftProvider:
 
 def get_trademark_draft_provider(
     settings: Settings | None = None,
-) -> TemplateTrademarkDraftProvider | ClaudeTrademarkDraftProvider:
+) -> (
+    TemplateTrademarkDraftProvider
+    | ClaudeTrademarkDraftProvider
+    | "TrademarkAgentDraftProvider"
+):
     cfg = settings or get_settings()
-    if cfg.TRADEMARK_DRAFT_BACKEND.strip().lower() == "claude_code":
+    backend = cfg.TRADEMARK_DRAFT_BACKEND.strip().lower()
+    if backend == "claude_code":
         return ClaudeTrademarkDraftProvider(cfg)
+    if backend == "agent":
+        from ipflow.services.agent.trademark_agent import (
+            TrademarkAgentDraftProvider,
+        )
+
+        return TrademarkAgentDraftProvider(cfg)
     return TemplateTrademarkDraftProvider()

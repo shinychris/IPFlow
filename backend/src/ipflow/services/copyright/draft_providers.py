@@ -232,11 +232,21 @@ class LLMCopyrightDraftProvider:
 
 def get_copyright_draft_provider(
     settings: Settings | None = None,
-) -> TemplateCopyrightDraftProvider | ClaudeCodeCopyrightDraftProvider | LLMCopyrightDraftProvider:
+) -> (
+    TemplateCopyrightDraftProvider
+    | ClaudeCodeCopyrightDraftProvider
+    | LLMCopyrightDraftProvider
+    | "CopyrightAgentDraftProvider"
+):
     cfg = settings or get_settings()
     backend = cfg.COPYRIGHT_DRAFT_BACKEND.strip().lower()
     if backend == "claude_code":
         return ClaudeCodeCopyrightDraftProvider(cfg)
     if backend == "llm":
         return LLMCopyrightDraftProvider(cfg)
+    if backend == "agent":
+        # 惰性导入 pydantic-ai 依赖，避免无该后端时引入硬依赖
+        from ipflow.services.agent.copyright_agent import CopyrightAgentDraftProvider
+
+        return CopyrightAgentDraftProvider(cfg)
     return TemplateCopyrightDraftProvider()

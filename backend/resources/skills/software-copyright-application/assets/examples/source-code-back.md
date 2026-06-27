@@ -5,9 +5,7 @@
 ## 第31-40页：后端服务 - 收藏与饮食计划
 
 ```python
-# ============================================================
-# File: server/services/favorite_service.py
-# ============================================================
+// 代码文件: server/services/favorite_service.py
 
 from datetime import datetime
 from sqlalchemy import desc
@@ -22,7 +20,6 @@ class FavoriteService:
         """获取用户收藏列表"""
         offset = (page - 1) * page_size
         
-        # 查询收藏记录
         favorites = db.session.query(Favorite, Recipe)\
             .join(Recipe, Favorite.recipe_id == Recipe.id)\
             .filter(Favorite.user_id == user_id)\
@@ -46,7 +43,6 @@ class FavoriteService:
     
     def add_favorite(self, user_id, recipe_id):
         """添加收藏"""
-        # 检查是否已收藏
         existing = Favorite.query.filter_by(
             user_id=user_id,
             recipe_id=recipe_id
@@ -55,12 +51,10 @@ class FavoriteService:
         if existing:
             return {'success': False, 'message': '已收藏'}
         
-        # 检查菜谱是否存在
         recipe = Recipe.query.get(recipe_id)
         if not recipe:
             return {'success': False, 'message': '菜谱不存在'}
         
-        # 创建收藏记录
         favorite = Favorite(
             user_id=user_id,
             recipe_id=recipe_id,
@@ -69,12 +63,10 @@ class FavoriteService:
         
         db.session.add(favorite)
         
-        # 更新菜谱收藏数
         recipe.collect_count += 1
         
         db.session.commit()
         
-        # 清除缓存
         cache.delete(f'user_favorites:{user_id}')
         
         return {'success': True, 'favorite_id': favorite.id}
@@ -91,14 +83,12 @@ class FavoriteService:
         
         db.session.delete(favorite)
         
-        # 更新菜谱收藏数
         recipe = Recipe.query.get(recipe_id)
         if recipe and recipe.collect_count > 0:
             recipe.collect_count -= 1
         
         db.session.commit()
         
-        # 清除缓存
         cache.delete(f'user_favorites:{user_id}')
         
         return {'success': True}
@@ -114,9 +104,7 @@ class FavoriteService:
 ```
 
 ```python
-# ============================================================
-# File: server/services/meal_plan_service.py
-# ============================================================
+// 代码文件: server/services/meal_plan_service.py
 
 from datetime import datetime, timedelta, date
 from sqlalchemy import and_
@@ -143,7 +131,6 @@ class MealPlanService:
         
         result = meal_plan.to_dict()
         
-        # 展开菜谱详情
         meals = result.get('meals', {})
         for meal_type, recipes in meals.items():
             detailed_recipes = []
@@ -166,11 +153,9 @@ class MealPlanService:
         preferences = user.preferences or {}
         dietary_restrictions = preferences.get('dietary_restrictions', [])
         
-        # 生成每一天的计划
         for i in range(days):
             plan_date = start_date + timedelta(days=i)
             
-            # 检查是否已有计划
             existing = MealPlan.query.filter_by(
                 user_id=user_id,
                 plan_date=plan_date
@@ -179,17 +164,14 @@ class MealPlanService:
             if existing:
                 continue
             
-            # 生成一天的膳食安排
             daily_meals = self._generate_daily_meals(
                 user_id, 
                 plan_date,
                 dietary_restrictions
             )
             
-            # 计算营养汇总
             nutrition_summary = self._calculate_nutrition(daily_meals)
             
-            # 保存计划
             meal_plan = MealPlan(
                 user_id=user_id,
                 plan_date=plan_date,
@@ -213,7 +195,6 @@ class MealPlanService:
             'snack': []
         }
         
-        # 早餐：简单快捷
         breakfast_recipes = self._get_suitable_recipes(
             meal_type='breakfast',
             restrictions=restrictions,
@@ -224,7 +205,6 @@ class MealPlanService:
             for r in breakfast_recipes
         ]
         
-        # 午餐：营养丰富
         lunch_recipes = self._get_suitable_recipes(
             meal_type='lunch',
             restrictions=restrictions,
@@ -235,7 +215,6 @@ class MealPlanService:
             for r in lunch_recipes
         ]
         
-        # 晚餐：清淡适量
         dinner_recipes = self._get_suitable_recipes(
             meal_type='dinner',
             restrictions=restrictions,
@@ -252,25 +231,20 @@ class MealPlanService:
         """获取适合的菜谱"""
         query = Recipe.query.filter_by(status=1)
         
-        # 排除有饮食限制的菜谱
         if restrictions:
             for restriction in restrictions:
                 query = query.filter(~Recipe.tags.contains([restriction]))
         
-        # 根据餐点类型筛选
         if meal_type == 'breakfast':
-            # 早餐：简单、快速
             query = query.filter(
                 Recipe.cook_time <= 15,
                 Recipe.difficulty.in_(['easy'])
             )
         elif meal_type == 'lunch':
-            # 午餐：营养均衡
             query = query.filter(
                 Recipe.calories.between(400, 800)
             )
         elif meal_type == 'dinner':
-            # 晚餐：清淡、适量
             query = query.filter(
                 Recipe.calories.between(300, 600)
             )
@@ -311,7 +285,6 @@ class MealPlanService:
         if not meal_plan:
             return {'error': '计划不存在'}
         
-        # 更新指定餐点
         meals = meal_plan.meals or {}
         meals[meal_type] = recipes
         
@@ -351,12 +324,10 @@ class MealPlanService:
             total_nutrition['fat'] += summary.get('total_fat', 0)
             total_nutrition['carbs'] += summary.get('total_carbs', 0)
         
-        # 计算日均值
         avg_nutrition = {
             k: round(v / total_days, 2) for k, v in total_nutrition.items()
         }
         
-        # 营养建议
         suggestions = self._generate_nutrition_suggestions(avg_nutrition)
         
         return {
@@ -391,9 +362,7 @@ class MealPlanService:
 ```
 
 ```python
-# ============================================================
-# File: server/utils/auth.py
-# ============================================================
+// 代码文件: server/utils/auth.py
 
 import jwt
 import requests
@@ -492,9 +461,7 @@ def login_required(f):
 ## 第41-50页：前端页面 - 菜谱详情与收藏
 
 ```javascript
-// ============================================================
-// File: pages/recipe/detail/detail.js
-// ============================================================
+// 代码文件: pages/recipe/detail/detail.js
 
 const app = getApp();
 const api = require('../../../config/api.js');
@@ -675,9 +642,7 @@ Page({
 ```
 
 ```javascript
-// ============================================================
-// File: pages/favorites/favorites.js
-// ============================================================
+// 代码文件: pages/favorites/favorites.js
 
 const app = getApp();
 const api = require('../../config/api.js');
@@ -865,9 +830,7 @@ Page({
 ```
 
 ```javascript
-// ============================================================
-// File: pages/meal-plan/meal-plan.js
-// ============================================================
+// 代码文件: pages/meal-plan/meal-plan.js
 
 const app = getApp();
 const api = require('../../config/api.js');
@@ -1018,9 +981,7 @@ Page({
 ## 第51-60页：工具类与配置文件
 
 ```javascript
-// ============================================================
-// File: utils/util.js
-// ============================================================
+// 代码文件: utils/util.js
 
 const formatTime = date => {
   const year = date.getFullYear();
@@ -1112,9 +1073,7 @@ module.exports = {
 ```
 
 ```python
-# ============================================================
-# File: server/utils/cache.py
-# ============================================================
+// 代码文件: server/utils/cache.py
 
 import redis
 import json
@@ -1188,18 +1147,14 @@ class Cache:
         def decorator(f):
             @wraps(f)
             def decorated_function(*args, **kwargs):
-                # 生成缓存键
                 cache_key = f"{f.__module__}.{f.__name__}:{str(args)}:{str(kwargs)}"
                 
-                # 尝试从缓存获取
                 cached_value = self.get(cache_key)
                 if cached_value is not None:
                     return cached_value
                 
-                # 执行函数
                 result = f(*args, **kwargs)
                 
-                # 存入缓存
                 self.set(cache_key, result, timeout)
                 
                 return result
@@ -1210,9 +1165,7 @@ cache = Cache()
 ```
 
 ```python
-# ============================================================
-# File: server/utils/validator.py
-# ============================================================
+// 代码文件: server/utils/validator.py
 
 import re
 from typing import Dict, Any, List, Optional
@@ -1263,7 +1216,6 @@ class Validator:
     @staticmethod
     def sanitize_string(value: str) -> str:
         """清理字符串，防止XSS攻击"""
-        # 转义HTML特殊字符
         value = value.replace('&', '&amp;')
         value = value.replace('<', '&lt;')
         value = value.replace('>', '&gt;')
@@ -1276,17 +1228,14 @@ class Validator:
         """验证菜谱数据"""
         errors = {}
         
-        # 验证名称
         if not data.get('name'):
             errors['name'] = '菜谱名称不能为空'
         elif len(data['name']) > 128:
             errors['name'] = '菜谱名称过长'
         
-        # 验证烹饪时间
         if not Validator.validate_number(data.get('cook_time'), 1, 1440):
             errors['cook_time'] = '烹饪时间必须在1-1440分钟之间'
         
-        # 验证热量
         if data.get('calories') and not Validator.validate_number(
             data['calories'], 0, 50000):
             errors['calories'] = '热量数值不合法'
@@ -1298,13 +1247,11 @@ class Validator:
         """验证用户偏好设置"""
         errors = {}
         
-        # 验证辣度级别
         spice_level = data.get('spice_level')
         if spice_level is not None and not Validator.validate_number(
             spice_level, 0, 5):
             errors['spice_level'] = '辣度级别必须在0-5之间'
         
-        # 验证难度
         difficulty = data.get('difficulty')
         if difficulty and difficulty not in ['easy', 'medium', 'hard']:
             errors['difficulty'] = '难度级别不合法'
@@ -1313,9 +1260,7 @@ class Validator:
 ```
 
 ```python
-# ============================================================
-# File: server/models/__init__.py
-# ============================================================
+// 代码文件: server/models/__init__.py
 
 from flask_sqlalchemy import SQLAlchemy
 
@@ -1338,45 +1283,34 @@ __all__ = [
 ```
 
 ```python
-# ============================================================
-# File: server/requirements.txt
-# ============================================================
+// 代码文件: server/requirements.txt
 
-# Web框架
 Flask==2.3.3
 Flask-SQLAlchemy==3.0.5
 Flask-JWT-Extended==4.5.2
 Flask-CORS==4.0.0
 Flask-Migrate==4.0.4
 
-# 数据库
 psycopg2-binary==2.9.7
 SQLAlchemy==2.0.20
 
-# 缓存
 redis==5.0.0
 
-# HTTP请求
 requests==2.31.0
 
-# 数据处理
 numpy==1.24.3
 pandas==2.0.3
 
-# 工具
 python-dotenv==1.0.0
 Werkzeug==2.3.7
 gunicorn==21.2.0
 
-# 测试
 pytest==7.4.2
 pytest-flask==1.2.0
 ```
 
 ```json
-// ============================================================
-// File: project.config.json
-// ============================================================
+// 代码文件: project.config.json
 
 {
   "description": "食刻即选项目配置文件",
@@ -1431,9 +1365,7 @@ pytest-flask==1.2.0
 ```
 
 ```
-// ============================================================
-// File: README.md
-// ============================================================
+// 代码文件: README.md
 
 # 食刻即选 - 智能饮食助手
 

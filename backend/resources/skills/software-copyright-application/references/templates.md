@@ -1,8 +1,12 @@
 # 软著申请材料模板
 
-## 一、源代码文档格式模板
+> 所有模板最终输出为 **.docx** 格式（A4 纸张）。源代码用 Consolas 五号，说明书用宋体小四+黑体标题。
+
+## 一、源代码文档格式模板（.docx）
 
 ### 1.1 封面模板
+
+> 注意：软著规范要求源代码/文档**开头不得有封面页**，应直接从正文开始。封面仅作内部归档参考。
 
 ```
                       【软件名称】
@@ -15,42 +19,37 @@
                       编制日期：2025年X月X日
 ```
 
-### 1.2 页眉页脚设置
+### 1.2 docx 页眉页脚设置（符合规范）
 
-**Word设置步骤：**
-1. 双击页眉区域进入编辑
-2. 插入表格：1行3列，无边框
-3. 左侧单元格：空
-4. 中间单元格：软件名称 + 版本号
-5. 右侧单元格：插入页码（页面顶端→普通数字3）
+**Word/python-docx 设置要点：**
+- **纸张：A4（210×297mm）**
+- 页边距：上下 1"，左右 0.8–1.25"
+- **页眉：软件全称 + 版本号**，居中，小五号（9pt）宋体
+- **页脚：页码**，底部居中，连续编排（用 PAGE 域）
+- 代码字体：Consolas / Courier New，五号（10.5pt），单倍行距
+
+**python-docx 实现见 `scripts/extract_source.py` 的 `_setup_header_footer()` 函数。**
 
 **效果示例：**
 ```
-                    XX管理系统 V1.0                        1
+页眉（居中）：    XX管理系统 V1.0
+        ...代码内容（Consolas 五号）...
+页脚（居中）：                  - 1 -
 ```
 
-### 1.3 代码排版示例
+### 1.3 代码排版示例（注释率 <5%）
 
-```
-/**
- * 用户服务类
- * 处理用户相关的业务逻辑
- */
+> 以下示例已按去AI化要求削减注释，仅保留必要的业务规则说明。
+
+```java
 @Service
 public class UserService {
-    
+
     @Autowired
     private UserRepository userRepository;
-    
     @Autowired
     private PasswordEncoder passwordEncoder;
-    
-    /**
-     * 用户登录验证
-     * @param username 用户名
-     * @param password 密码
-     * @return 用户信息
-     */
+
     public User login(String username, String password) {
         User user = userRepository.findByUsername(username);
         if (user == null) {
@@ -61,35 +60,32 @@ public class UserService {
         }
         return user;
     }
-    
-    /**
-     * 用户注册
-     * @param userDTO 用户信息
-     * @return 注册后的用户
-     */
+
     public User register(UserDTO userDTO) {
-        // 检查用户名是否已存在
         if (userRepository.existsByUsername(userDTO.getUsername())) {
             throw new BusinessException("用户名已存在");
         }
-        // 检查邮箱是否已存在
         if (userRepository.existsByEmail(userDTO.getEmail())) {
             throw new BusinessException("邮箱已被注册");
         }
-        // 创建新用户
         User user = new User();
         BeanUtils.copyProperties(userDTO, user);
         user.setPassword(passwordEncoder.encode(userDTO.getPassword()));
         user.setCreateTime(LocalDateTime.now());
         user.setStatus(1);
+        // TODO: 注册成功后发欢迎邮件，临时先不处理
         return userRepository.save(user);
     }
 }
 ```
 
+**注释率核查**：用 `python scripts/ai_trace_analyzer.py --type code --path <docx>` 检查，必须 <5%。
+
 ---
 
-## 二、软件说明书模板
+## 二、软件说明书模板（.docx）
+
+> 输出 .docx：A4 纸张，正文宋体小四（12pt），标题黑体，1.5 倍行距，首行缩进 2 字符，页眉软件全称+版本号，页脚页码居中。
 
 ### 2.1 用户手册封面模板
 

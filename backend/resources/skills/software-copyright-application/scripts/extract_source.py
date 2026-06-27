@@ -1,10 +1,22 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-软著源代码提取工具
+软著源代码提取工具（生成 .docx）
 
-从项目中提取符合中国版权保护中心格式要求的源代码文档。
-支持自动生成前30页和后30页源代码。
+从项目中提取并生成符合中国版权保护中心 docx 规范的源代码文档：
+  - 纸张：A4（210×297mm）
+  - 页边距：常规（上下 1"，左右 0.8-1.25"）
+  - 页眉：软件全称 + 版本号（居中，所有页面显示）
+  - 页码：底部居中，连续编排
+  - 代码字体：Consolas / Courier New（等宽）
+  - 字号：五号（10.5pt）
+  - 行距：单倍
+  - 每页代码量：≥ 50 行（不含空行）
+  - 文件标识：每个源文件前注明「代码文件: <相对路径>」
+  - 注释率：<5%（由 ai_trace_analyzer.py 核查）
+
+依赖：python-docx
+    pip install python-docx
 
 使用方法:
     python extract_source.py --project-path /path/to/project \
@@ -48,34 +60,35 @@ DEFAULT_EXCLUDE_FILES = {
     'requirements.txt', 'Gemfile.lock', 'composer.lock'
 }
 
+# 注释行匹配模式（用于估算注释率，<5% 才达标）
+COMMENT_PATTERNS = [
+    re.compile(r'^\s*#'),                       # Python/Ruby/Shell
+    re.compile(r'^\s*//'),                      # C/Java/JS/Go/Rust
+    re.compile(r'^\s*/\*'),                     # C 风格块注释开始
+    re.compile(r'^\s*\*'),                      # 块注释续行
+    re.compile(r'^\s*<!--'),                    # HTML/XML
+    re.compile(r'^\s*--'),                      # SQL/Lua
+    re.compile(r'^\s*"""'),                     # Python 文档字符串
+    re.compile(r"^\s*'''"),
+]
+
 
 def get_all_code_files(project_path, extensions=None, exclude_dirs=None, exclude_files=None):
-    """
-    获取项目中所有代码文件
-    
-    Args:
-        project_path: 项目根目录路径
-        extensions: 包含的文件扩展名集合
-        exclude_dirs: 排除的目录集合
-        exclude_files: 排除的文件名集合
-    
-    Returns:
-        list: 代码文件路径列表
-    """
+    """获取项目中所有代码文件"""
     if extensions is None:
         extensions = DEFAULT_EXTENSIONS
     if exclude_dirs is None:
         exclude_dirs = DEFAULT_EXCLUDE_DIRS
     if exclude_files is None:
         exclude_files = DEFAULT_EXCLUDE_FILES
-    
+
     code_files = []
     project_path = Path(project_path).resolve()
-    
+
     for root, dirs, files in os.walk(project_path):
         # 排除指定目录
         dirs[:] = [d for d in dirs if d not in exclude_dirs and not d.startswith('.')]
-        
+
         for file in files:
             # 跳过隐藏文件
             if file.startswith('.'):
@@ -87,7 +100,7 @@ def get_all_code_files(project_path, extensions=None, exclude_dirs=None, exclude
             file_path = Path(root) / file
             if file_path.suffix.lower() in extensions:
                 code_files.append(file_path)
-    
+
     return sorted(code_files)
 
 
@@ -109,16 +122,15 @@ def remove_blank_lines(content):
 
 def remove_sensitive_info(content):
     """移除敏感信息（简单处理）"""
-    # 移除可能的密码/密钥（简化处理，实际使用时可能需要更复杂的规则）
     patterns = [
         (r'(password|passwd|pwd)\s*[=:]\s*["\'][^"\']+["\']', r'\1="***"'),
         (r'(secret|api[_-]?key|token)\s*[=:]\s*["\'][^"\']+["\']', r'\1="***"'),
         (r'(jdbc:|mysql://|postgresql://)[^\s"\']+', r'\1***'),
     ]
-    
+
     for pattern, repl in patterns:
         content = re.sub(pattern, repl, content, flags=re.IGNORECASE)
-    
+
     return content
 
 
@@ -127,40 +139,50 @@ def read_file_content(file_path, remove_blank=True, desensitize=True):
     try:
         with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
             content = f.read()
-        
+
         if remove_blank:
             content = remove_blank_lines(content)
-        
+
         if desensitize:
             content = remove_sensitive_info(content)
-        
+
         return content
     except Exception as e:
         return f"// Error reading file: {e}\n"
 
 
-def collect_code_content(code_files, max_lines=None):
+def collect_code_content(code_files, project_root=None, max_lines=None):
     """
-    收集代码内容
-    
+    收集代码内容，每个源文件前注明「代码文件: <相对路径>」
+
     Args:
         code_files: 代码文件路径列表
+        project_root: 项目根目录（用于计算相对路径）
         max_lines: 最大收集行数，None表示不限制
-    
+
     Returns:
         str: 收集的代码内容
     """
     all_content = []
     total_lines = 0
-    
+
+    if project_root is None and code_files:
+        project_root = code_files[0].parent
+
     for file_path in code_files:
-        # 添加文件分隔注释
-        relative_path = file_path.name
-        separator = f"\n// {'='*60}\n// File: {relative_path}\n// {'='*60}\n\n"
-        
+        # 计算相对路径作为文件标识
+        try:
+            rel_path = file_path.relative_to(project_root) if project_root else file_path.name
+            rel_path_str = str(rel_path).replace('\\', '/')
+        except ValueError:
+            rel_path_str = file_path.name
+
+        # 文件标识（软著规范要求）
+        separator = f"\n// 代码文件: {rel_path_str}\n\n"
+
         content = read_file_content(file_path)
         file_lines = content.count('\n') + 1
-        
+
         if max_lines and total_lines + file_lines > max_lines:
             # 只取需要的部分
             remaining = max_lines - total_lines
@@ -168,152 +190,209 @@ def collect_code_content(code_files, max_lines=None):
             content = '\n'.join(lines)
             all_content.append(separator + content)
             break
-        
+
         all_content.append(separator + content)
         total_lines += file_lines
-    
+
     return '\n'.join(all_content)
 
 
 def split_into_pages(content, lines_per_page=50):
     """
-    将代码内容按指定行数分页
-    
+    将代码内容按指定行数分页（每页 ≥50 行）
+
     Args:
         content: 代码内容
-        lines_per_page: 每页行数
-    
+        lines_per_page: 每页行数（默认 50，符合软著规范）
+
     Returns:
         list: 每页内容的列表
     """
     lines = content.split('\n')
     pages = []
-    
+
     for i in range(0, len(lines), lines_per_page):
         page_lines = lines[i:i + lines_per_page]
-        # 如果最后一页不足，用空行补齐（实际应删除空行）
-        while len(page_lines) < lines_per_page:
-            page_lines.append('')
         pages.append('\n'.join(page_lines))
-    
+
     return pages
 
 
-def generate_document(pages, software_name, version, output_path, pages_per_doc=30):
+def _set_cell_margins(section, top=1.0, bottom=1.0, left=1.0, right=1.0):
+    """设置页边距（英寸）"""
+    from docx.shared import Inches
+    section.top_margin = Inches(top)
+    section.bottom_margin = Inches(bottom)
+    section.left_margin = Inches(left)
+    section.right_margin = Inches(right)
+
+
+def _set_a4_paper(section):
+    """设置 A4 纸张（210×297mm）"""
+    from docx.shared import Mm
+    section.page_width = Mm(210)
+    section.page_height = Mm(297)
+
+
+def _set_code_font(run):
+    """设置代码字体为 Consolas / Courier New，五号（10.5pt）"""
+    from docx.shared import Pt
+    from docx.oxml.ns import qn
+    run.font.name = 'Consolas'
+    # 兼容 Courier New（若环境无 Consolas）
+    rPr = run._element.get_or_add_rPr()
+    rFonts = rPr.find(qn('w:rFonts'))
+    if rFonts is None:
+        from docx.oxml import OxmlElement
+        rFonts = OxmlElement('w:rFonts')
+        rPr.append(rFonts)
+    rFonts.set(qn('w:ascii'), 'Consolas')
+    rFonts.set(qn('w:hAnsi'), 'Consolas')
+    rFonts.set(qn('w:cs'), 'Courier New')
+    run.font.size = Pt(10.5)
+
+
+def _add_page_number(paragraph):
+    """在段落中插入页码域（底部居中，连续编排）"""
+    from docx.oxml import OxmlElement
+    from docx.oxml.ns import qn
+    # 插入 PAGE 域
+    run = paragraph.add_run()
+    fldChar1 = OxmlElement('w:fldChar')
+    fldChar1.set(qn('w:fldCharType'), 'begin')
+    instrText = OxmlElement('w:instrText')
+    instrText.set(qn('xml:space'), 'preserve')
+    instrText.text = 'PAGE'
+    fldChar2 = OxmlElement('w:fldChar')
+    fldChar2.set(qn('w:fldCharType'), 'end')
+    run._r.append(fldChar1)
+    run._r.append(instrText)
+    run._r.append(fldChar2)
+
+
+def _setup_header_footer(section, software_name, version):
     """
-    生成Word格式的源代码文档
-    
+    设置页眉（软件全称+版本号，居中）和页脚（页码，底部居中）
+    符合软著 docx 规范
+    """
+    from docx.enum.text import WD_ALIGN_PARAGRAPH
+    from docx.shared import Pt
+
+    # 页眉：软件全称 + 版本号，居中，小五号
+    header = section.header
+    header.is_linked_to_previous = False
+    header_para = header.paragraphs[0] if header.paragraphs else header.add_paragraph()
+    header_para.text = f"{software_name} {version}"
+    header_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    for run in header_para.runs:
+        run.font.size = Pt(9)
+        run.font.name = '宋体'
+
+    # 页脚：页码，底部居中，连续编排
+    footer = section.footer
+    footer.is_linked_to_previous = False
+    footer_para = footer.paragraphs[0] if footer.paragraphs else footer.add_paragraph()
+    footer_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    _add_page_number(footer_para)
+    for run in footer_para.runs:
+        run.font.size = Pt(9)
+
+
+def generate_document(pages, software_name, version, output_path, pages_per_doc=30, lines_per_page=50):
+    """
+    生成符合软著 docx 规范的源代码文档
+
+    规范要点：
+      - A4 纸张
+      - 常规页边距
+      - 页眉：软件全称+版本号（居中）
+      - 页脚：页码（底部居中，连续）
+      - 代码字体 Consolas / Courier New，五号（10.5pt）
+      - 单倍行距
+      - 每页 ≥50 行
+
     Args:
         pages: 页面内容列表
-        software_name: 软件名称
+        software_name: 软件全称
         version: 版本号
-        output_path: 输出文件路径
+        output_path: 输出文件路径（.docx）
         pages_per_doc: 每个文档的页数
+        lines_per_page: 每页行数
     """
     try:
         from docx import Document
-        from docx.shared import Pt, Inches
+        from docx.shared import Pt
         from docx.enum.text import WD_ALIGN_PARAGRAPH
     except ImportError:
-        print("错误：需要安装 python-docx 库")
+        print("错误：必须安装 python-docx 才能生成 .docx")
         print("请运行: pip install python-docx")
         return False
-    
+
     doc = Document()
-    
-    # 设置页面边距
-    sections = doc.sections
-    for section in sections:
-        section.top_margin = Inches(1)
-        section.bottom_margin = Inches(1)
-        section.left_margin = Inches(1.25)
-        section.right_margin = Inches(1.25)
-    
-    # 设置页眉
-    header = sections[0].header
-    header_para = header.paragraphs[0]
-    header_para.text = f"{software_name} {version}"
-    header_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    header_run = header_para.runs[0]
-    header_run.font.size = Pt(9)
-    header_run.font.name = '宋体'
-    
-    # 添加页面内容
-    for i, page_content in enumerate(pages[:pages_per_doc]):
+
+    # 页面设置：A4 + 常规页边距
+    section = doc.sections[0]
+    _set_a4_paper(section)
+    _set_cell_margins(section, top=1.0, bottom=1.0, left=1.0, right=1.0)
+
+    # 页眉页脚
+    _setup_header_footer(section, software_name, version)
+
+    # 添加代码内容
+    selected_pages = pages[:pages_per_doc]
+    for i, page_content in enumerate(selected_pages):
         if i > 0:
             doc.add_page_break()
-        
-        # 添加页码（右侧）
-        # 注意：python-docx 对页码支持有限，需要手动处理或使用域代码
-        
-        # 添加代码内容
-        paragraph = doc.add_paragraph()
-        run = paragraph.add_run(page_content)
-        run.font.name = 'Consolas'
-        run.font.size = Pt(10.5)
-        
-        # 设置段落格式
-        paragraph_format = paragraph.paragraph_format
-        paragraph_format.line_spacing = Pt(12)
-        paragraph_format.space_after = Pt(0)
-    
-    # 保存文档
+
+        # 按行添加，保证每页行数与字体可控
+        lines = page_content.split('\n')
+        # 不足 lines_per_page 行不补空行（规范要求 ≥50 行非空）
+        for line in lines:
+            paragraph = doc.add_paragraph()
+            run = paragraph.add_run(line if line else ' ')
+            _set_code_font(run)
+            # 单倍行距，段后无空隙
+            pf = paragraph.paragraph_format
+            pf.line_spacing = 1.0
+            pf.space_after = Pt(0)
+            pf.space_before = Pt(0)
+
     doc.save(output_path)
     return True
 
 
-def generate_text_document(pages, software_name, version, output_path, pages_per_doc=30):
-    """
-    生成纯文本格式的源代码文档（备用方案）
-    
-    Args:
-        pages: 页面内容列表
-        software_name: 软件名称
-        version: 版本号
-        output_path: 输出文件路径
-        pages_per_doc: 每个文档的页数
-    """
-    with open(output_path, 'w', encoding='utf-8') as f:
-        # 写入页眉说明
-        f.write(f"软件名称：{software_name}\n")
-        f.write(f"版本号：{version}\n")
-        f.write(f"总页数：{min(len(pages), pages_per_doc)}\n")
-        f.write("=" * 60 + "\n\n")
-        
-        for i, page_content in enumerate(pages[:pages_per_doc]):
-            # 页眉
-            header_line = f"{software_name} {version}"
-            f.write(header_line.center(60) + f" {i+1}\n")
-            f.write("-" * 60 + "\n")
-            
-            # 内容
-            f.write(page_content + "\n")
-            f.write("\n" + "=" * 60 + "\n\n")
-    
-    return True
+def estimate_comment_ratio(content):
+    """估算注释率（注释行 / 非空行），用于自查 <5%"""
+    lines = [ln for ln in content.split('\n') if ln.strip()]
+    if not lines:
+        return 0.0
+    comment_lines = sum(1 for ln in lines if any(p.match(ln) for p in COMMENT_PATTERNS))
+    return comment_lines / len(lines)
 
 
 def main():
     parser = argparse.ArgumentParser(
-        description='软著源代码提取工具',
+        description='软著源代码提取工具（生成 .docx，符合 A4/Consolas/页眉规范）',
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 示例:
   # 基本用法
   python extract_source.py --project-path ./my-project --software-name "XX系统" --version "V1.0"
-  
+
   # 自定义输出目录
   python extract_source.py -p ./my-project -n "XX系统" -v "V1.0" -o ./output
-  
+
   # 自定义文件扩展名
   python extract_source.py -p ./my-project -n "XX系统" -v "V1.0" --ext .java,.xml,.properties
-  
+
   # 指定自定义的前后30页代码
   python extract_source.py -p ./my-project -n "XX系统" -v "V1.0" \\
       --front-pages ./custom/front.txt --back-pages ./custom/back.txt
+
+注意：本工具仅输出 .docx 格式（不再支持 txt），需先 pip install python-docx
         """
     )
-    
+
     parser.add_argument('-p', '--project-path', required=True,
                         help='项目根目录路径')
     parser.add_argument('-n', '--software-name', required=True,
@@ -329,38 +408,44 @@ def main():
     parser.add_argument('--exclude-files', type=str,
                         help='排除的文件，逗号分隔')
     parser.add_argument('--lines-per-page', type=int, default=50,
-                        help='每页行数（默认: 50）')
+                        help='每页行数（默认: 50，符合软著规范）')
     parser.add_argument('--front-pages', type=str,
                         help='自定义前30页代码文件路径')
     parser.add_argument('--back-pages', type=str,
                         help='自定义后30页代码文件路径')
-    parser.add_argument('--format', choices=['auto', 'docx', 'txt'], default='auto',
-                        help='输出格式（默认: auto，优先docx）')
-    
+
     args = parser.parse_args()
-    
+
+    # 检查 python-docx 是否安装
+    try:
+        from docx import Document  # noqa: F401
+    except ImportError:
+        print("错误：必须安装 python-docx 才能生成 .docx 文档")
+        print("请运行: pip install python-docx")
+        return
+
     # 解析扩展名
     if args.ext:
         extensions = set(ext.strip() for ext in args.ext.split(','))
     else:
         extensions = DEFAULT_EXTENSIONS
-    
+
     # 解析排除项
     exclude_dirs = DEFAULT_EXCLUDE_DIRS.copy()
     if args.exclude_dirs:
         exclude_dirs.update(d.strip() for d in args.exclude_dirs.split(','))
-    
+
     exclude_files = DEFAULT_EXCLUDE_FILES.copy()
     if args.exclude_files:
         exclude_files.update(f.strip() for f in args.exclude_files.split(','))
-    
+
     # 创建输出目录
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
-    
+
     print(f"正在扫描项目: {args.project_path}")
     print(f"文件扩展名: {extensions}")
-    
+
     # 获取所有代码文件
     code_files = get_all_code_files(
         args.project_path,
@@ -368,17 +453,19 @@ def main():
         exclude_dirs=exclude_dirs,
         exclude_files=exclude_files
     )
-    
+
     print(f"找到 {len(code_files)} 个代码文件")
-    
+
     if not code_files:
         print("错误：未找到任何代码文件，请检查项目路径和扩展名设置")
         return
-    
+
     # 统计总代码行数
     total_lines = sum(count_lines(f) for f in code_files)
     print(f"总代码行数: {total_lines}")
-    
+
+    project_root = Path(args.project_path).resolve()
+
     # 生成前30页
     print("\n正在生成前30页源代码...")
     if args.front_pages and Path(args.front_pages).exists():
@@ -392,11 +479,11 @@ def main():
         # 优先选择：配置文件 -> 入口文件 -> 核心模块
         priority_files = []
         other_files = []
-        
-        config_patterns = ['package.json', 'pom.xml', 'build.gradle', 'requirements.txt', 
-                          'Cargo.toml', 'go.mod', 'composer.json', 'Gemfile']
+
+        config_patterns = ['package.json', 'pom.xml', 'build.gradle', 'requirements.txt',
+                           'Cargo.toml', 'go.mod', 'composer.json', 'Gemfile']
         main_patterns = ['main', 'app', 'index', 'application', 'startup']
-        
+
         for f in code_files:
             fname = f.name.lower()
             if any(cp in fname for cp in config_patterns):
@@ -405,12 +492,13 @@ def main():
                 priority_files.append(f)
             else:
                 other_files.append(f)
-        
+
         # 合并文件列表（配置文件优先，然后按字母顺序）
         sorted_files = priority_files + other_files
-        front_content = collect_code_content(sorted_files, max_lines=30 * args.lines_per_page)
+        front_content = collect_code_content(sorted_files, project_root=project_root,
+                                              max_lines=30 * args.lines_per_page)
         front_pages = split_into_pages(front_content, args.lines_per_page)
-    
+
     # 生成后30页
     print("正在生成后30页源代码...")
     if args.back_pages and Path(args.back_pages).exists():
@@ -422,47 +510,36 @@ def main():
     else:
         # 从项目中倒序提取
         reversed_files = list(reversed(code_files))
-        back_content = collect_code_content(reversed_files, max_lines=30 * args.lines_per_page)
+        back_content = collect_code_content(reversed_files, project_root=project_root,
+                                             max_lines=30 * args.lines_per_page)
         back_pages = split_into_pages(back_content, args.lines_per_page)
-    
-    # 确定输出格式
-    use_docx = args.format == 'docx'
-    if args.format == 'auto':
-        try:
-            from docx import Document
-            use_docx = True
-        except ImportError:
-            use_docx = False
-            print("注意：未安装 python-docx，将使用纯文本格式输出")
-            print("如需Word格式，请运行: pip install python-docx")
-    
-    # 生成文档
+
+    # 生成 .docx 文档
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    
-    if use_docx:
-        # 生成Word文档
-        front_path = output_dir / f"源代码_前30页_{timestamp}.docx"
-        back_path = output_dir / f"源代码_后30页_{timestamp}.docx"
-        
-        print(f"\n生成Word文档...")
-        generate_document(front_pages, args.software_name, args.version, front_path, 30)
-        generate_document(back_pages, args.software_name, args.version, back_path, 30)
-        
+
+    front_path = output_dir / f"源代码_前30页_{timestamp}.docx"
+    back_path = output_dir / f"源代码_后30页_{timestamp}.docx"
+
+    print(f"\n生成 .docx 文档（A4 / Consolas 五号 / 页眉含软件名）...")
+    ok_front = generate_document(front_pages, args.software_name, args.version,
+                                  front_path, 30, args.lines_per_page)
+    ok_back = generate_document(back_pages, args.software_name, args.version,
+                                 back_path, 30, args.lines_per_page)
+
+    if ok_front:
         print(f"前30页: {front_path}")
+    if ok_back:
         print(f"后30页: {back_path}")
-    else:
-        # 生成纯文本文档
-        front_path = output_dir / f"源代码_前30页_{timestamp}.txt"
-        back_path = output_dir / f"源代码_后30页_{timestamp}.txt"
-        
-        print(f"\n生成文本文档...")
-        generate_text_document(front_pages, args.software_name, args.version, front_path, 30)
-        generate_text_document(back_pages, args.software_name, args.version, back_path, 30)
-        
-        print(f"前30页: {front_path}")
-        print(f"后30页: {back_path}")
-        print("\n提示：文本格式需要手动粘贴到Word中并调整格式")
-    
+
+    # 注释率自查（软著硬性指标 <5%）
+    front_ratio = estimate_comment_ratio(front_content)
+    back_ratio = estimate_comment_ratio(back_content)
+    print(f"\n⚠️ 注释率自查（目标 <5%）:")
+    print(f"  前30页注释率: {front_ratio:.1%} {'✅' if front_ratio < 0.05 else '❌ 超标，需削减注释'}")
+    print(f"  后30页注释率: {back_ratio:.1%} {'✅' if back_ratio < 0.05 else '❌ 超标，需削减注释'}")
+    if front_ratio >= 0.05 or back_ratio >= 0.05:
+        print("  建议：运行 python scripts/ai_trace_analyzer.py --type code --path <文件> 获取详细改造建议")
+
     # 生成统计信息
     info_path = output_dir / f"统计信息_{timestamp}.txt"
     with open(info_path, 'w', encoding='utf-8') as f:
@@ -474,31 +551,34 @@ def main():
         f.write(f"  代码文件总数: {len(code_files)}\n")
         f.write(f"  总代码行数: {total_lines}\n")
         f.write(f"  平均每文件行数: {total_lines // len(code_files) if code_files else 0}\n")
+        f.write(f"  前30页注释率: {front_ratio:.1%}（目标 <5%）\n")
+        f.write(f"  后30页注释率: {back_ratio:.1%}（目标 <5%）\n")
         f.write(f"\n文件扩展名分布:\n")
-        
+
         ext_count = {}
-        for f in code_files:
-            ext = f.suffix.lower()
+        for f2 in code_files:
+            ext = f2.suffix.lower()
             ext_count[ext] = ext_count.get(ext, 0) + 1
-        
+
         for ext, count in sorted(ext_count.items(), key=lambda x: -x[1]):
             f.write(f"  {ext}: {count} 个文件\n")
-        
+
+        f.write(f"\n输出格式: .docx（A4 / Consolas 五号 / 单倍行距 / 页眉软件全称+版本号 / 页脚页码居中）\n")
         f.write(f"\n前30页来源:\n")
         if args.front_pages:
             f.write(f"  自定义文件: {args.front_pages}\n")
         else:
             f.write(f"  自动从项目提取（前{min(30, len(front_pages))}页）\n")
-        
+
         f.write(f"\n后30页来源:\n")
         if args.back_pages:
             f.write(f"  自定义文件: {args.back_pages}\n")
         else:
             f.write(f"  自动从项目提取（后{min(30, len(back_pages))}页）\n")
-    
+
     print(f"\n统计信息: {info_path}")
-    print("\n完成！请检查生成的文档并按需要调整格式。")
-    print("注意：生成的文档可能需要进一步调整以完全符合要求")
+    print("\n完成！docx 已生成，请检查内容并按需要调整。")
+    print("提醒：源代码注释率必须 <5%，可用 scripts/ai_trace_analyzer.py 核查。")
 
 
 if __name__ == '__main__':

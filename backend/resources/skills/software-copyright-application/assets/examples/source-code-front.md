@@ -15,11 +15,8 @@
 ## 第1-5页：项目配置与入口
 
 ```javascript
-// ============================================================
-// File: app.js
-// ============================================================
+// 代码文件: app.js
 
-// 食刻即选 - 小程序主入口文件
 const utils = require('./utils/util.js');
 const api = require('./config/api.js');
 
@@ -91,55 +88,44 @@ App({
 ```
 
 ```javascript
-// ============================================================
-// File: config/api.js
-// ============================================================
+// 代码文件: config/api.js
 
-// API接口配置文件
 const baseUrl = 'https://api.example.com/v1';
 
 module.exports = {
   baseUrl: baseUrl,
   
-  // 用户相关
   login: baseUrl + '/auth/login',
   getUserInfo: baseUrl + '/user/info',
   updatePreferences: baseUrl + '/user/preferences',
   updateUserInfo: baseUrl + '/user/update',
   
-  // 菜谱相关
   getRecipeList: baseUrl + '/recipes',
   getRecipeDetail: baseUrl + '/recipes/',
   searchRecipes: baseUrl + '/recipes/search',
   getCategories: baseUrl + '/recipes/categories',
   
-  // 推荐相关
   getRecommendations: baseUrl + '/recommendations',
   getDailyPick: baseUrl + '/recommendations/daily',
   getSimilarRecipes: baseUrl + '/recommendations/similar',
   recordBehavior: baseUrl + '/recommendations/behavior',
   
-  // 收藏相关
   getFavorites: baseUrl + '/favorites',
   addFavorite: baseUrl + '/favorites',
   removeFavorite: baseUrl + '/favorites/',
   
-  // 饮食计划
   getMealPlan: baseUrl + '/meal-plan',
   generateMealPlan: baseUrl + '/meal-plan/generate',
   updateMealPlan: baseUrl + '/meal-plan/',
   getNutritionAnalysis: baseUrl + '/meal-plan/nutrition',
   
-  // 评价反馈
   submitReview: baseUrl + '/reviews',
   getRecipeReviews: baseUrl + '/reviews/'
 };
 ```
 
 ```json
-// ============================================================
-// File: app.json
-// ============================================================
+// 代码文件: app.json
 
 {
   "pages": [
@@ -203,9 +189,7 @@ module.exports = {
 ## 第6-15页：页面代码 - 首页
 
 ```javascript
-// ============================================================
-// File: pages/index/index.js
-// ============================================================
+// 代码文件: pages/index/index.js
 
 const app = getApp();
 const api = require('../../config/api.js');
@@ -361,12 +345,9 @@ Page({
 ```
 
 ```html
-<!-- ============================================================ -->
-<!-- File: pages/index/index.wxml -->
-<!-- ============================================================ -->
+// 代码文件: pages/index/index.wxml
 
 <view class="container">
-  <!-- 搜索栏 -->
   <view class="search-bar" bindtap="goToSearch">
     <view class="search-input">
       <image class="search-icon" src="/images/search.png"></image>
@@ -374,7 +355,6 @@ Page({
     </view>
   </view>
 
-  <!-- 每日精选 -->
   <view class="daily-pick-section" wx:if="{{dailyPick}}">
     <view class="section-header">
       <text class="section-title">今日精选</text>
@@ -392,7 +372,6 @@ Page({
     </view>
   </view>
 
-  <!-- 分类导航 -->
   <view class="category-section">
     <view class="section-header">
       <text class="section-title">菜谱分类</text>
@@ -412,7 +391,6 @@ Page({
     </scroll-view>
   </view>
 
-  <!-- 推荐列表 -->
   <view class="recommend-section">
     <view class="section-header">
       <text class="section-title">智能推荐</text>
@@ -438,7 +416,6 @@ Page({
     </view>
   </view>
 
-  <!-- 加载更多 -->
   <view class="loading-more" wx:if="{{isLoading}}">
     <text>加载中...</text>
   </view>
@@ -449,16 +426,13 @@ Page({
 ```
 
 ```css
-/* ============================================================ */
-/* File: pages/index/index.wxss */
-/* ============================================================ */
+// 代码文件: pages/index/index.wxss
 
 .container {
   background-color: #F5F5F5;
   min-height: 100vh;
 }
 
-/* 搜索栏 */
 .search-bar {
   padding: 20rpx 30rpx;
   background-color: #FF6B35;
@@ -483,7 +457,6 @@ Page({
   font-size: 28rpx;
 }
 
-/* 每日精选 */
 .daily-pick-section {
   margin: 20rpx;
   background-color: #FFFFFF;
@@ -551,7 +524,6 @@ Page({
   margin-bottom: 8rpx;
 }
 
-/* 分类导航 */
 .category-section {
   margin: 20rpx;
   background-color: #FFFFFF;
@@ -586,7 +558,6 @@ Page({
   color: #666666;
 }
 
-/* 推荐列表 */
 .recommend-section {
   margin: 20rpx;
   background-color: #FFFFFF;
@@ -657,9 +628,7 @@ Page({
 ## 第16-25页：后端服务 - 用户与推荐
 
 ```python
-# ============================================================
-# File: server/app.py
-# ============================================================
+// 代码文件: server/app.py
 
 from flask import Flask, request, jsonify
 from flask_jwt_extended import JWTManager, jwt_required, create_access_token, get_jwt_identity
@@ -677,16 +646,13 @@ from services.meal_plan_service import MealPlanService
 app = Flask(__name__)
 app.config.from_object(Config)
 
-# 初始化扩展
 db.init_app(app)
 jwt = JWTManager(app)
 CORS(app)
 
-# 创建数据库表
 with app.app_context():
     db.create_all()
 
-# ==================== 认证相关接口 ====================
 
 @app.route('/v1/auth/login', methods=['POST'])
 def login():
@@ -698,11 +664,9 @@ def login():
         return jsonify({'error': '缺少code参数'}), 400
     
     try:
-        # 调用微信接口获取openid
         user_service = UserService()
         result = user_service.wechat_login(code)
         
-        # 创建JWT令牌
         access_token = create_access_token(
             identity=result['user_id'],
             expires_delta=timedelta(days=30)
@@ -717,7 +681,6 @@ def login():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-# ==================== 用户相关接口 ====================
 
 @app.route('/v1/user/info', methods=['GET'])
 @jwt_required()
@@ -759,7 +722,6 @@ def get_preferences():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-# ==================== 推荐相关接口 ====================
 
 @app.route('/v1/recommendations', methods=['GET'])
 @jwt_required()
@@ -837,7 +799,6 @@ def record_behavior():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-# ==================== 菜谱相关接口 ====================
 
 @app.route('/v1/recipes', methods=['GET'])
 def get_recipe_list():
@@ -893,9 +854,7 @@ if __name__ == '__main__':
 ```
 
 ```python
-# ============================================================
-# File: server/models/user.py
-# ============================================================
+// 代码文件: server/models/user.py
 
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
@@ -916,7 +875,6 @@ class User(db.Model):
     province = db.Column(db.String(64), nullable=True)
     city = db.Column(db.String(64), nullable=True)
     
-    # 偏好设置（JSON格式存储）
     preferences = db.Column(db.JSON, default=lambda: {
         'cuisine': [],
         'spice_level': 2,
@@ -925,16 +883,13 @@ class User(db.Model):
         'cook_time_preference': 30
     })
     
-    # 用户状态
     status = db.Column(db.Integer, default=1)
     is_vip = db.Column(db.Boolean, default=False)
     
-    # 时间戳
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     last_login_at = db.Column(db.DateTime, nullable=True)
     
-    # 关联关系
     favorites = db.relationship('Favorite', backref='user', lazy='dynamic')
     meal_plans = db.relationship('MealPlan', backref='user', lazy='dynamic')
     behaviors = db.relationship('UserBehavior', backref='user', lazy='dynamic')
@@ -960,7 +915,6 @@ class UserBehavior(db.Model):
     recipe_id = db.Column(db.Integer, db.ForeignKey('recipes.id'), nullable=False)
     behavior_type = db.Column(db.String(32), nullable=False)  # view, like, collect, share, cook
     
-    # 行为元数据（停留时间、评分等）
     metadata = db.Column(db.JSON, default=dict)
     
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
@@ -974,9 +928,7 @@ class UserBehavior(db.Model):
 ## 第26-30页：数据库配置与推荐算法
 
 ```python
-# ============================================================
-# File: server/config.py
-# ============================================================
+// 代码文件: server/config.py
 
 import os
 from datetime import timedelta
@@ -984,12 +936,10 @@ from datetime import timedelta
 class Config:
     """应用配置类"""
     
-    # 密钥配置
     SECRET_KEY = os.environ.get('SECRET_KEY') or 'your-secret-key-here'
     JWT_SECRET_KEY = os.environ.get('JWT_SECRET_KEY') or 'your-jwt-secret-key'
     JWT_ACCESS_TOKEN_EXPIRES = timedelta(days=30)
     
-    # 数据库配置
     SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL') or \
         'postgresql://user:password@localhost:5432/shikejixuan'
     SQLALCHEMY_TRACK_MODIFICATIONS = False
@@ -1000,18 +950,14 @@ class Config:
         'pool_recycle': 1800
     }
     
-    # Redis配置（缓存）
     REDIS_URL = os.environ.get('REDIS_URL') or 'redis://localhost:6379/0'
     
-    # 微信小程序配置
     WECHAT_APPID = os.environ.get('WECHAT_APPID') or 'your-app-id'
     WECHAT_SECRET = os.environ.get('WECHAT_SECRET') or 'your-app-secret'
     
-    # 文件上传配置
     UPLOAD_FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'uploads')
     MAX_CONTENT_LENGTH = 16 * 1024 * 1024  # 16MB
     
-    # 推荐算法配置
     RECOMMENDATION_CONFIG = {
         'content_weight': 0.4,
         'collaborative_weight': 0.4,
@@ -1019,7 +965,6 @@ class Config:
         'learning_rate': 0.01
     }
     
-    # 分页配置
     DEFAULT_PAGE_SIZE = 10
     MAX_PAGE_SIZE = 50
 
@@ -1047,14 +992,10 @@ config = {
 ```
 
 ```sql
--- ============================================================
--- File: server/migrations/001_initial_schema.sql
--- ============================================================
+// 代码文件: server/migrations/001_initial_schema.sql
 
--- 创建数据库
 CREATE DATABASE shikejixuan OWNER postgres ENCODING 'UTF8';
 
--- 用户表
 CREATE TABLE users (
     id SERIAL PRIMARY KEY,
     openid VARCHAR(128) UNIQUE NOT NULL,
@@ -1075,7 +1016,6 @@ CREATE TABLE users (
 
 CREATE INDEX idx_users_openid ON users(openid);
 
--- 菜谱表
 CREATE TABLE recipes (
     id SERIAL PRIMARY KEY,
     name VARCHAR(128) NOT NULL,
@@ -1106,7 +1046,6 @@ CREATE INDEX idx_recipes_cuisine ON recipes(cuisine_type);
 CREATE INDEX idx_recipes_difficulty ON recipes(difficulty);
 CREATE INDEX idx_recipes_status ON recipes(status);
 
--- 用户行为表
 CREATE TABLE user_behaviors (
     id SERIAL PRIMARY KEY,
     user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
@@ -1120,7 +1059,6 @@ CREATE INDEX idx_behaviors_user ON user_behaviors(user_id);
 CREATE INDEX idx_behaviors_recipe ON user_behaviors(recipe_id);
 CREATE INDEX idx_behaviors_type ON user_behaviors(behavior_type);
 
--- 收藏表
 CREATE TABLE favorites (
     id SERIAL PRIMARY KEY,
     user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
@@ -1131,7 +1069,6 @@ CREATE TABLE favorites (
 
 CREATE INDEX idx_favorites_user ON favorites(user_id);
 
--- 饮食计划表
 CREATE TABLE meal_plans (
     id SERIAL PRIMARY KEY,
     user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
@@ -1146,7 +1083,6 @@ CREATE TABLE meal_plans (
 CREATE INDEX idx_meal_plans_user ON meal_plans(user_id);
 CREATE INDEX idx_meal_plans_date ON meal_plans(plan_date);
 
--- 分类表
 CREATE TABLE categories (
     id SERIAL PRIMARY KEY,
     name VARCHAR(64) NOT NULL,
@@ -1156,7 +1092,6 @@ CREATE TABLE categories (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- 插入默认分类
 INSERT INTO categories (name, icon, sort_order) VALUES
 ('家常菜', '/images/cat-home.png', 1),
 ('川菜', '/images/cat-sichuan.png', 2),
@@ -1169,9 +1104,7 @@ INSERT INTO categories (name, icon, sort_order) VALUES
 ```
 
 ```python
-# ============================================================
-# File: server/services/recommendation_service.py
-# ============================================================
+// 代码文件: server/services/recommendation_service.py
 
 import numpy as np
 from datetime import datetime, timedelta
@@ -1192,48 +1125,39 @@ class RecommendationService:
     @cache.memoize(timeout=3600)
     def get_recommendations(self, user_id, page=1, page_size=10):
         """获取个性化推荐列表"""
-        # 获取用户偏好
         user = User.query.get(user_id)
         if not user:
             return self._get_popular_recipes(page, page_size)
         
         preferences = user.preferences or {}
         
-        # 三种推荐策略
         content_based = self._content_based_recommend(user_id, preferences, limit=50)
         collaborative = self._collaborative_recommend(user_id, limit=50)
         popular = self._get_popular_recipes(1, 50)['list']
         
-        # 混合推荐结果
         merged_scores = defaultdict(float)
         
-        # 内容过滤得分
         for i, recipe in enumerate(content_based):
             merged_scores[recipe['id']] += self.content_weight * (1 - i / len(content_based))
         
-        # 协同过滤得分
         for i, recipe in enumerate(collaborative):
             merged_scores[recipe['id']] += self.collaborative_weight * (1 - i / len(collaborative))
         
-        # 热门得分
         for i, recipe in enumerate(popular):
             merged_scores[recipe['id']] += self.popular_weight * (1 - i / len(popular))
         
-        # 去重：排除已浏览和已收藏的菜谱
+        # 去重：别把用户看过/收藏过的推给他
         viewed_ids = self._get_viewed_recipe_ids(user_id)
         for rid in viewed_ids:
             if rid in merged_scores:
                 del merged_scores[rid]
         
-        # 按得分排序
         sorted_recipes = sorted(merged_scores.items(), key=lambda x: x[1], reverse=True)
         
-        # 分页
         start = (page - 1) * page_size
         end = start + page_size
         recipe_ids = [rid for rid, _ in sorted_recipes[start:end]]
         
-        # 获取完整菜谱信息
         recipes = Recipe.query.filter(Recipe.id.in_(recipe_ids)).all()
         recipe_map = {r.id: r.to_dict() for r in recipes}
         
@@ -1248,10 +1172,9 @@ class RecommendationService:
     
     def get_daily_pick(self, user_id):
         """获取今日精选"""
-        # 基于用户偏好和时令推荐一道精选菜谱
+        # TODO: 时令权重目前写死，后面做成可配置
         user = User.query.get(user_id)
         
-        # 查询今日是否已有精选
         today = datetime.now().date()
         cache_key = f'daily_pick:{user_id}:{today}'
         cached = cache.get(cache_key)
@@ -1261,7 +1184,6 @@ class RecommendationService:
             if recipe:
                 return recipe.to_dict()
         
-        # 选择今日精选
         preferences = user.preferences if user else {}
         cuisine_preference = preferences.get('cuisine', [])
         
@@ -1270,7 +1192,6 @@ class RecommendationService:
         if cuisine_preference:
             query = query.filter(Recipe.cuisine_type.in_(cuisine_preference))
         
-        # 综合考虑评分、收藏数、制作次数
         query = query.order_by(
             (Recipe.like_count * 2 + Recipe.collect_count * 3 + Recipe.view_count).desc()
         )
@@ -1287,7 +1208,6 @@ class RecommendationService:
         """基于内容的推荐"""
         query = Recipe.query.filter_by(status=1)
         
-        # 根据用户偏好筛选
         cuisine = preferences.get('cuisine', [])
         if cuisine:
             query = query.filter(Recipe.cuisine_type.in_(cuisine))
@@ -1309,13 +1229,11 @@ class RecommendationService:
     
     def _collaborative_recommend(self, user_id, limit=50):
         """基于协同过滤的推荐"""
-        # 找到相似用户
         similar_users = self._find_similar_users(user_id)
         
         if not similar_users:
             return []
         
-        # 获取相似用户喜欢的菜谱
         similar_user_ids = [uid for uid, _ in similar_users]
         
         liked_recipes = db.session.query(UserBehavior.recipe_id, func.count(UserBehavior.id).label('count'))\
@@ -1333,7 +1251,6 @@ class RecommendationService:
     
     def _find_similar_users(self, user_id, top_n=20):
         """找到与指定用户相似的用户"""
-        # 获取用户的偏好和行为
         user_favorites = set(
             f.recipe_id for f in Favorite.query.filter_by(user_id=user_id).all()
         )
@@ -1341,7 +1258,6 @@ class RecommendationService:
         if not user_favorites:
             return []
         
-        # 找到有相似喜好的用户
         similar_users = db.session.query(
             Favorite.user_id,
             func.count(Favorite.recipe_id).label('common_count')
@@ -1393,7 +1309,6 @@ class RecommendationService:
         
         db.session.add(behavior)
         
-        # 更新菜谱统计
         recipe = Recipe.query.get(recipe_id)
         if recipe:
             if behavior_type == 'view':
@@ -1414,17 +1329,14 @@ class RecommendationService:
         if not target_recipe:
             return []
         
-        # 基于标签、菜系、难度相似度
         query = Recipe.query.filter(
             Recipe.id != recipe_id,
             Recipe.status == 1
         )
         
-        # 优先同菜系
         if target_recipe.cuisine_type:
             query = query.filter_by(cuisine_type=target_recipe.cuisine_type)
         
-        # 相似难度
         query = query.filter_by(difficulty=target_recipe.difficulty)
         
         recipes = query.order_by(Recipe.collect_count.desc()).limit(limit).all()

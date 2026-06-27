@@ -52,6 +52,8 @@ dependencies = [
     "httpx>=0.28.0",
     # DOCX 导出（软著/专利/商标材料）
     "python-docx>=1.1.0",
+    # pydantic-ai Agent 后端（技能驱动 + 结构化输出的草稿生成）
+    "pydantic-ai>=2.0.0",
 ]
 
 [project.optional-dependencies]

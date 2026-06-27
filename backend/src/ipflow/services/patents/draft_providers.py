@@ -120,8 +120,15 @@ class ClaudePatentDraftProvider:
         return _patent_from_structured(structured)
 
 
-def get_patent_draft_provider(settings: Settings | None = None) -> TemplatePatentDraftProvider | ClaudePatentDraftProvider:
+def get_patent_draft_provider(
+    settings: Settings | None = None,
+) -> TemplatePatentDraftProvider | ClaudePatentDraftProvider | "PatentAgentDraftProvider":
     cfg = settings or get_settings()
-    if cfg.PATENT_DRAFT_BACKEND.strip().lower() == "claude_code":
+    backend = cfg.PATENT_DRAFT_BACKEND.strip().lower()
+    if backend == "claude_code":
         return ClaudePatentDraftProvider(cfg)
+    if backend == "agent":
+        from ipflow.services.agent.patent_agent import PatentAgentDraftProvider
+
+        return PatentAgentDraftProvider(cfg)
     return TemplatePatentDraftProvider()

@@ -98,14 +98,14 @@ class Settings(BaseSettings):
     ANTHROPIC_API_KEY: Optional[str] = Field(default=None, description="Anthropic API Key")
     ANTHROPIC_DEFAULT_MODEL: str = Field(default="claude-3-haiku-20240307", description="Anthropic 默认模型")
 
-    # 软著草稿生成：template（模板）或 claude_code（Claude Code CLI）
+    # 软著草稿生成：template（模板）或 claude_code（Claude Code CLI）或 llm（通用 LLM）或 agent（pydantic-ai + 技能）
     COPYRIGHT_DRAFT_BACKEND: str = Field(
         default="template",
-        description="软著 AI 草稿后端: template, claude_code, llm",
+        description="软著 AI 草稿后端: template, claude_code, llm, agent",
     )
     COPYRIGHT_DRAFT_FALLBACK_TO_TEMPLATE: bool = Field(
         default=False,
-        description="Claude Code 失败时是否回退到模板（默认关闭）",
+        description="claude_code/agent 失败时是否回退到模板（默认关闭；agent 推荐开启）",
     )
     CLAUDE_CODE_BIN: str = Field(default="claude", description="Claude Code CLI 可执行文件")
     CLAUDE_CODE_SKILL_PROMPT_FILE: str = Field(
@@ -138,7 +138,7 @@ class Settings(BaseSettings):
     # 专利草稿：template | claude_code
     PATENT_DRAFT_BACKEND: str = Field(
         default="template",
-        description="专利 AI 草稿后端: template, claude_code",
+        description="专利 AI 草稿后端: template, claude_code, agent",
     )
     PATENT_DRAFT_FALLBACK_TO_TEMPLATE: bool = Field(
         default=False,
@@ -156,7 +156,7 @@ class Settings(BaseSettings):
     # 商标草稿：template | claude_code
     TRADEMARK_DRAFT_BACKEND: str = Field(
         default="template",
-        description="商标 AI 草稿后端: template, claude_code",
+        description="商标 AI 草稿后端: template, claude_code, agent",
     )
     TRADEMARK_DRAFT_FALLBACK_TO_TEMPLATE: bool = Field(
         default=False,

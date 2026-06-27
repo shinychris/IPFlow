@@ -60,6 +60,31 @@ async def get_ai_config(settings: Settings = Depends(get_settings)):
     )
 
 
+@router.get("/agent", response_model=AIConfigResponse)
+async def get_agent_status(settings: Settings = Depends(get_settings)):
+    """探测 pydantic-ai agent 后端就绪状态.
+
+    返回当前 agent 后端使用的 AI 配置；若凭证不可用，仍返回 200（enabled=False），
+    便于前端/运维判断 agent 是否可用，而非直接报错。
+    """
+    from ipflow.services.agent.models import build_agent_model, AgentModelUnavailable
+
+    agent_enabled = False
+    try:
+        build_agent_model(settings)
+        agent_enabled = True
+    except AgentModelUnavailable:
+        agent_enabled = False
+
+    return AIConfigResponse(
+        provider=settings.AI_PROVIDER,
+        model=settings.AI_MODEL,
+        enabled=agent_enabled,
+        ollama_base_url=settings.OLLAMA_BASE_URL,
+        available_providers=["ollama", "openai", "anthropic"],
+    )
+
+
 @router.put("/config", response_model=AIConfigResponse)
 async def update_ai_config(
     request: UpdateAIConfigRequest,
