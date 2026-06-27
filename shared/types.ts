@@ -67,32 +67,41 @@ export const templateTypes = ["web", "mobile", "algorithm", "script", "desktop"]
 export type TemplateType = typeof templateTypes[number];
 
 // === 项目类型 ===
+//
+// 字段命名与后端 SQLModel 响应保持一致（snake_case）。
+// 后端 ``Project`` 模型字段：project_type / subject_type / flow_status /
+// current_step / created_at / updated_at 等，均为 snake_case。
 export interface Project {
   id: string;
-  type: ProjectType;
+  project_type: ProjectType;
+  /** 兼容历史：少量旧调用仍使用 ``type``，保留可选别名 */
+  type?: ProjectType;
   name: string;
   version: string;
   description?: string;
-  subjectType: SubjectType;
-  developmentMethod: DevelopmentMethod;
-  publicationStatus: PublicationStatus;
+  subject_type: SubjectType;
+  subject_name?: string;
+  development_method?: DevelopmentMethod;
+  publication_status?: PublicationStatus;
   status: ProjectStatus;
-  currentStep: number;
-  flowStatus?: string;
+  current_step: number;
   flow_status?: string;
-  createdAt: Date | null;
-  updatedAt: Date | null;
+  owner_id?: string;
+  organization_id?: string;
+  created_at: string | Date | null;
+  updated_at: string | Date | null;
 }
 
 export interface InsertProject {
-  type: ProjectType;
+  project_type: ProjectType;
   name: string;
   version?: string;
-  subjectType: SubjectType;
-  developmentMethod: DevelopmentMethod;
-  publicationStatus: PublicationStatus;
+  subject_type?: SubjectType;
+  subject_name?: string;
+  development_method?: DevelopmentMethod;
+  publication_status?: PublicationStatus;
   status?: ProjectStatus;
-  currentStep?: number;
+  current_step?: number;
 }
 
 // === 软件信息（软著专用）===

@@ -15,6 +15,7 @@ from ipflow.db import get_db
 from ipflow.models import TrademarkData, Project, ProjectType, TrademarkType, TrademarkStatus
 from ipflow.models.user import User
 from ipflow.api.deps import require_active_user
+from ipflow.utils.enums import enum_value
 
 router = APIRouter()
 
@@ -113,13 +114,13 @@ async def get_trademark_info(
     return {
         "id": str(trademark_data.id),
         "project_id": str(trademark_data.project_id),
-        "trademark_type": trademark_data.trademark_type.value,
+        "trademark_type": enum_value(trademark_data.trademark_type),
         "trademark_name": trademark_data.trademark_name,
         "description": trademark_data.description,
         "design_description": trademark_data.design_description,
         "color_claim": trademark_data.color_claim,
         "special_notes": trademark_data.special_notes,
-        "status": trademark_data.status.value,
+        "status": enum_value(trademark_data.status),
         "upload_id": str(trademark_data.upload_id) if trademark_data.upload_id else None,
         "application_number": trademark_data.application_number,
         "registration_number": trademark_data.registration_number,
@@ -207,13 +208,13 @@ async def update_trademark_info(
     return {
         "id": str(trademark_data.id),
         "project_id": str(trademark_data.project_id),
-        "trademark_type": trademark_data.trademark_type.value,
+        "trademark_type": enum_value(trademark_data.trademark_type),
         "trademark_name": trademark_data.trademark_name,
         "description": trademark_data.description,
         "design_description": trademark_data.design_description,
         "color_claim": trademark_data.color_claim,
         "special_notes": trademark_data.special_notes,
-        "status": trademark_data.status.value,
+        "status": enum_value(trademark_data.status),
         "upload_id": str(trademark_data.upload_id) if trademark_data.upload_id else None,
         "application_number": trademark_data.application_number,
         "registration_number": trademark_data.registration_number,
@@ -263,10 +264,10 @@ async def get_trademark_status(
     
     return {
         "has_data": True,
-        "status": trademark_data.status.value,
+        "status": enum_value(trademark_data.status),
         "application_number": trademark_data.application_number,
         "registration_number": trademark_data.registration_number,
-        "trademark_type": trademark_data.trademark_type.value,
+        "trademark_type": enum_value(trademark_data.trademark_type),
     }
 
 

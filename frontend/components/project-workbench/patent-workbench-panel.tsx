@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { ComplianceCard, type ComplianceReportData } from "./compliance-card";
 
 interface PatentWorkbenchPanelProps {
   flowStatus: string;
@@ -39,6 +40,10 @@ interface PatentWorkbenchPanelProps {
   onNewClaimContentChange: (value: string) => void;
   onAddClaim: () => void;
   addingClaim: boolean;
+  // 合规检查
+  complianceReport?: ComplianceReportData | null;
+  complianceChecking?: boolean;
+  onRunCompliance?: () => void;
 }
 
 export function PatentWorkbenchPanel({
@@ -64,6 +69,9 @@ export function PatentWorkbenchPanel({
   onNewClaimContentChange,
   onAddClaim,
   addingClaim,
+  complianceReport,
+  complianceChecking,
+  onRunCompliance,
 }: PatentWorkbenchPanelProps) {
   return (
     <div className="space-y-6 max-w-4xl">
@@ -205,6 +213,14 @@ export function PatentWorkbenchPanel({
           </Button>
         </CardContent>
       </Card>
+
+      {onRunCompliance ? (
+        <ComplianceCard
+          report={complianceReport}
+          checking={!!complianceChecking}
+          onCheck={onRunCompliance}
+        />
+      ) : null}
     </div>
   );
 }

@@ -15,6 +15,7 @@ from ipflow.db import get_db
 from ipflow.models import PatentData, Project, ProjectType, PatentType, PatentStatus
 from ipflow.models.user import User
 from ipflow.api.deps import require_active_user
+from ipflow.utils.enums import enum_value
 
 router = APIRouter()
 
@@ -113,13 +114,13 @@ async def get_patent_info(
     return {
         "id": str(patent_data.id),
         "project_id": str(patent_data.project_id),
-        "patent_type": patent_data.patent_type.value,
+        "patent_type": enum_value(patent_data.patent_type),
         "title": patent_data.title,
         "technical_field": patent_data.technical_field,
         "background_art": patent_data.background_art,
         "abstract": patent_data.abstract,
         "abstract_figure_number": patent_data.abstract_figure_number,
-        "status": patent_data.status.value,
+        "status": enum_value(patent_data.status),
         "claims_count": patent_data.claims_count,
         "drawings_count": patent_data.drawings_count,
         "application_number": patent_data.application_number,
@@ -207,13 +208,13 @@ async def update_patent_info(
     return {
         "id": str(patent_data.id),
         "project_id": str(patent_data.project_id),
-        "patent_type": patent_data.patent_type.value,
+        "patent_type": enum_value(patent_data.patent_type),
         "title": patent_data.title,
         "technical_field": patent_data.technical_field,
         "background_art": patent_data.background_art,
         "abstract": patent_data.abstract,
         "abstract_figure_number": patent_data.abstract_figure_number,
-        "status": patent_data.status.value,
+        "status": enum_value(patent_data.status),
         "claims_count": patent_data.claims_count,
         "drawings_count": patent_data.drawings_count,
         "application_number": patent_data.application_number,
@@ -263,7 +264,7 @@ async def get_patent_status(
     
     return {
         "has_data": True,
-        "status": patent_data.status.value,
+        "status": enum_value(patent_data.status),
         "application_number": patent_data.application_number,
         "publication_number": patent_data.publication_number,
         "grant_number": patent_data.grant_number,

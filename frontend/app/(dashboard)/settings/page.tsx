@@ -15,25 +15,54 @@ import {
   getModels,
   getOllamaModels,
   getProviders,
+  updateAIConfig,
   type AIConfig,
   type AIModel,
   type AIProvider,
 } from "@/api/ai-config";
+import { authApi } from "@/api/auth";
+import { useAuthStore } from "@/stores/auth-store";
 import { Loader2, RefreshCw, Bot, Server } from "lucide-react";
+
+/** 本地存储 key：通知偏好 */
+const NOTIF_PREF_KEY = "ipflow:notification-prefs";
 
 export default function SettingsPage() {
   const { toast } = useToast();
+  const user = useAuthStore((s) => s.user);
+  const fetchUser = useAuthStore((s) => s.fetchUser);
+
   const [aiConfig, setAIConfig] = useState<AIConfig | null>(null);
   const [providers, setProviders] = useState<AIProvider[]>([]);
   const [models, setModels] = useState<AIModel[]>([]);
   const [loading, setLoading] = useState(true);
   const [modelsLoading, setModelsLoading] = useState(false);
   const [selectedProvider, setSelectedProvider] = useState<string>("");
+  const [selectedModel, setSelectedModel] = useState<string>("");
+  const [ollamaUrl, setOllamaUrl] = useState<string>("");
+  const [aiEnabled, setAiEnabled] = useState<boolean>(false);
+
+  // 个人信息表单
+  const [displayName, setDisplayName] = useState<string>("");
+  const [profileSaving, setProfileSaving] = useState(false);
+  // AI 配置保存
+  const [aiSaving, setAiSaving] = useState(false);
+
+  // 通知偏好（本地存储）
+  const [emailNotif, setEmailNotif] = useState(true);
+  const [browserNotif, setBrowserNotif] = useState(false);
+
+  // 加载用户昵称
+  useEffect(() => {
+    const name = user?.display_name || user?.displayName || user?.name || "";
+    setDisplayName(name);
+  }, [user]);
 
   // 加载 AI 配置
   useEffect(() => {
     loadAIConfig();
     loadProviders();
+    loadNotifPrefs();
   }, []);
 
   // 当提供商改变时加载模型列表
@@ -43,11 +72,38 @@ export default function SettingsPage() {
     }
   }, [selectedProvider]);
 
+  const loadNotifPrefs = () => {
+    try {
+      const raw = localStorage.getItem(NOTIF_PREF_KEY);
+      if (raw) {
+        const prefs = JSON.parse(raw) as { email?: boolean; browser?: boolean };
+        setEmailNotif(prefs.email ?? true);
+        setBrowserNotif(prefs.browser ?? false);
+      }
+    } catch {
+      // 忽略解析错误，使用默认值
+    }
+  };
+
+  const persistNotifPrefs = (email: boolean, browser: boolean) => {
+    try {
+      localStorage.setItem(
+        NOTIF_PREF_KEY,
+        JSON.stringify({ email, browser }),
+      );
+    } catch {
+      // 存储失败忽略
+    }
+  };
+
   const loadAIConfig = async () => {
     try {
       const config = await getAIConfig();
       setAIConfig(config);
       setSelectedProvider(config.provider);
+      setSelectedModel(config.model);
+      setOllamaUrl(config.ollama_base_url || "");
+      setAiEnabled(config.enabled);
     } catch (error) {
       toast({
         title: "加载失败",
@@ -96,6 +152,57 @@ export default function SettingsPage() {
     }
   };
 
+  // 保存个人信息
+  const handleSaveProfile = async () => {
+    setProfileSaving(true);
+    try {
+      await authApi.updateMe({ display_name: displayName });
+      await fetchUser();
+      toast({
+        title: "保存成功",
+        description: "个人信息已更新",
+      });
+    } catch (error: any) {
+      const msg = error?.response?.data?.detail || error?.message || "保存失败";
+      toast({
+        title: "保存失败",
+        description: msg,
+        variant: "destructive",
+      });
+    } finally {
+      setProfileSaving(false);
+    }
+  };
+
+  // 保存 AI 配置
+  const handleSaveAIConfig = async () => {
+    setAiSaving(true);
+    try {
+      const updated = await updateAIConfig({
+        provider: selectedProvider,
+        model: selectedModel || undefined,
+        enabled: aiEnabled,
+        ollama_base_url:
+          selectedProvider === "ollama" && ollamaUrl ? ollamaUrl : undefined,
+      });
+      setAIConfig(updated);
+      toast({
+        title: "保存成功",
+        description: "AI 配置已更新（运行实例热生效）",
+      });
+    } catch (error: any) {
+      const msg =
+        error?.response?.data?.detail || error?.message || "保存 AI 配置失败";
+      toast({
+        title: "保存失败",
+        description: msg,
+        variant: "destructive",
+      });
+    } finally {
+      setAiSaving(false);
+    }
+  };
+
   const formatModelSize = (bytes?: number): string => {
     if (!bytes) return "";
     const gb = bytes / (1024 * 1024 * 1024);
@@ -129,10 +236,39 @@ export default function SettingsPage() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="displayName">昵称</Label>
-              <Input id="displayName" placeholder="您的昵称" />
+              <Label htmlFor="username">用户名</Label>
+              <Input
+                id="username"
+                value={user?.username || ""}
+                disabled
+                placeholder="用户名"
+              />
+              <p className="text-xs text-muted-foreground">用户名创建后不可修改</p>
             </div>
-            <Button>保存更改</Button>
+            <div className="space-y-2">
+              <Label htmlFor="email">邮箱</Label>
+              <Input
+                id="email"
+                value={user?.email || ""}
+                disabled
+                placeholder="邮箱"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="displayName">昵称</Label>
+              <Input
+                id="displayName"
+                value={displayName}
+                onChange={(e) => setDisplayName(e.target.value)}
+                placeholder="您的昵称"
+              />
+            </div>
+            <Button onClick={handleSaveProfile} disabled={profileSaving}>
+              {profileSaving ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : null}
+              保存更改
+            </Button>
           </CardContent>
         </Card>
 
@@ -156,7 +292,10 @@ export default function SettingsPage() {
                   开启后可在项目中使用 AI 辅助功能
                 </p>
               </div>
-              <Switch checked={aiConfig?.enabled} />
+              <Switch
+                checked={aiEnabled}
+                onCheckedChange={setAiEnabled}
+              />
             </div>
 
             <Separator />
@@ -166,7 +305,10 @@ export default function SettingsPage() {
               <Label htmlFor="provider">AI 提供商</Label>
               <Select
                 value={selectedProvider}
-                onValueChange={setSelectedProvider}
+                onValueChange={(v) => {
+                  setSelectedProvider(v);
+                  setSelectedModel("");
+                }}
               >
                 <SelectTrigger id="provider">
                   <SelectValue placeholder="选择 AI 提供商" />
@@ -199,7 +341,8 @@ export default function SettingsPage() {
                 <Input
                   id="ollamaUrl"
                   placeholder="http://localhost:11434"
-                  defaultValue={aiConfig?.ollama_base_url}
+                  value={ollamaUrl}
+                  onChange={(e) => setOllamaUrl(e.target.value)}
                 />
                 <p className="text-xs text-muted-foreground">
                   本地 Ollama 服务地址，默认 http://localhost:11434
@@ -221,7 +364,10 @@ export default function SettingsPage() {
                   刷新
                 </Button>
               </div>
-              <Select defaultValue={aiConfig?.model}>
+              <Select
+                value={selectedModel}
+                onValueChange={setSelectedModel}
+              >
                 <SelectTrigger id="model">
                   <SelectValue placeholder={modelsLoading ? "加载中..." : "选择模型"} />
                 </SelectTrigger>
@@ -253,10 +399,14 @@ export default function SettingsPage() {
               )}
             </div>
 
-            <Button 
+            <Button
               className="w-full"
-              disabled={!aiConfig?.enabled}
+              onClick={handleSaveAIConfig}
+              disabled={aiSaving}
             >
+              {aiSaving ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : null}
               保存 AI 配置
             </Button>
           </CardContent>
@@ -273,7 +423,13 @@ export default function SettingsPage() {
                 <Label>邮件通知</Label>
                 <p className="text-sm text-muted-foreground">接收项目更新和重要通知</p>
               </div>
-              <Switch />
+              <Switch
+                checked={emailNotif}
+                onCheckedChange={(v) => {
+                  setEmailNotif(v);
+                  persistNotifPrefs(v, browserNotif);
+                }}
+              />
             </div>
             <Separator />
             <div className="flex items-center justify-between">
@@ -281,7 +437,13 @@ export default function SettingsPage() {
                 <Label>浏览器通知</Label>
                 <p className="text-sm text-muted-foreground">在浏览器中显示通知</p>
               </div>
-              <Switch />
+              <Switch
+                checked={browserNotif}
+                onCheckedChange={(v) => {
+                  setBrowserNotif(v);
+                  persistNotifPrefs(emailNotif, v);
+                }}
+              />
             </div>
           </CardContent>
         </Card>

@@ -20,6 +20,7 @@ from ipflow.models import (
 )
 from ipflow.models.user import User
 from ipflow.api.deps import require_active_user
+from ipflow.utils.enums import enum_value
 
 router = APIRouter()
 
@@ -194,7 +195,7 @@ async def export_patent(
 ====================
 
 专利名称：{patent_data.title}
-专利类型：{patent_data.patent_type.value}
+专利类型：{enum_value(patent_data.patent_type)}
 生成时间：{datetime.utcnow().isoformat()}
 
 文件列表：
@@ -298,7 +299,7 @@ async def preview_export(
         "patent_info": {
             "has_data": patent_data is not None,
             "title": patent_data.title if patent_data else None,
-            "patent_type": patent_data.patent_type.value if patent_data else None,
+            "patent_type": enum_value(patent_data.patent_type) if patent_data else None,
         },
         "claims": {
             "count": len(claims),

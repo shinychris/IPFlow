@@ -18,6 +18,8 @@ from ipflow.models import Organization, OrganizationMember, OrganizationInvitati
 from ipflow.models.user import UserStatus
 from ipflow.api.deps import require_active_user, require_admin_user
 from ipflow.core.tenant import TenantService
+from ipflow.utils.enums import enum_value
+from ipflow.config import get_settings
 
 router = APIRouter(prefix="/organizations", tags=["组织"])
 
@@ -315,7 +317,7 @@ async def list_members(
             "username": user.username,
             "email": user.email,
             "display_name": user.display_name,
-            "role": member.role.value,
+            "role": enum_value(member.role),
             "joined_at": member.joined_at,
         })
     
@@ -382,13 +384,38 @@ async def invite_member(
     )
     db.add(invitation)
     await db.commit()
-    
-    # TODO: 发送邀请邮件
-    
+
+    # 发送邀请邮件（SMTP 未配置时降级为日志记录，不影响邀请创建）
+    try:
+        from ipflow.services.email_service import send_organization_invitation
+
+        settings = get_settings()
+        frontend_base = getattr(settings, "FRONTEND_BASE_URL", None) or "http://localhost:3000"
+        invite_url = f"{frontend_base}/join?token={token}"
+        inviter_name = (
+            getattr(current_user, "display_name", None)
+            or getattr(current_user, "username", None)
+            or "成员"
+        )
+        await send_organization_invitation(
+            to_email=data.email,
+            organization_name=org.name,
+            inviter_name=inviter_name,
+            invite_url=invite_url,
+            role=data.role,
+            expires_in_days=7,
+        )
+    except Exception as e:  # noqa: BLE001
+        # 邮件失败不应阻断邀请创建；记录后继续
+        import logging
+
+        logging.getLogger(__name__).warning("组织邀请邮件发送失败：%s", e)
+
     return {
         "message": "邀请已发送",
         "email": data.email,
         "expires_at": invitation.expires_at.isoformat(),
+        "invite_token": token,
     }
 
 
@@ -442,7 +469,7 @@ async def update_member_role(
         "username": user.username,
         "email": user.email,
         "display_name": user.display_name,
-        "role": member.role.value,
+        "role": enum_value(member.role),
         "joined_at": member.joined_at,
     }
 

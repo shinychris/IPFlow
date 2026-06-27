@@ -210,7 +210,7 @@ async def wechat_webhook(
     if await _is_duplicate_event(db, event_id):
         return {"code": "SUCCESS", "message": "Duplicate ignored"}
 
-    # 验证签名（TODO: 实现实际的签名验证）
+    # 验证签名（生产环境使用微信平台证书；沙箱可设 PAYMENT_SKIP_SIGNATURE_VERIFY）
     payment_service = PaymentServiceFactory.get_wechat_service()
     is_valid = await payment_service.verify_payment(payment_order.id, data)
 
@@ -279,7 +279,7 @@ async def alipay_webhook(
     if await _is_duplicate_event(db, event_id):
         return {"success": True, "message": "Duplicate ignored"}
 
-    # 验证签名（TODO: 实现实际的签名验证）
+    # 验证签名（生产环境使用支付宝公钥；沙箱可设 PAYMENT_SKIP_SIGNATURE_VERIFY）
     payment_service = PaymentServiceFactory.get_alipay_service()
     is_valid = await payment_service.verify_payment(payment_order.id, params)
 

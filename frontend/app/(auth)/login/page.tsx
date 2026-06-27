@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,7 +10,6 @@ import { Shield, Loader2 } from "lucide-react";
 
 export default function LoginPage() {
   const { login, error: authError } = useAuth();
-  const router = useRouter();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -29,8 +27,9 @@ export default function LoginPage() {
     try {
       await login.mutateAsync({ username, password });
       // 登录成功，跳转到工作台
-      router.push("/dashboard");
-      router.refresh();
+      // 使用硬跳转：确保 dashboard 布局的认证守卫能从已持久化的 localStorage
+      // 读取 isAuthenticated（避免 Zustand persist 水合竞态导致被重定向回登录页）
+      window.location.href = "/dashboard";
     } catch (err: any) {
       let errorMsg = "登录失败，请检查用户名和密码";
       if (err?.message) {

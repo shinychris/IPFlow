@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { ComplianceCard, type ComplianceReportData } from "./compliance-card";
 
 interface TrademarkClassItem {
   id: string;
@@ -34,6 +35,10 @@ interface TrademarkWorkbenchPanelProps {
   addingClass: boolean;
   classes: TrademarkClassItem[];
   onRemoveClass: (associationId: string) => void;
+  // 合规检查
+  complianceReport?: ComplianceReportData | null;
+  complianceChecking?: boolean;
+  onRunCompliance?: () => void;
 }
 
 export function TrademarkWorkbenchPanel({
@@ -53,6 +58,9 @@ export function TrademarkWorkbenchPanel({
   addingClass,
   classes,
   onRemoveClass,
+  complianceReport,
+  complianceChecking,
+  onRunCompliance,
 }: TrademarkWorkbenchPanelProps) {
   return (
     <div className="space-y-6 max-w-4xl">
@@ -147,6 +155,14 @@ export function TrademarkWorkbenchPanel({
           </div>
         </CardContent>
       </Card>
+
+      {onRunCompliance ? (
+        <ComplianceCard
+          report={complianceReport}
+          checking={!!complianceChecking}
+          onCheck={onRunCompliance}
+        />
+      ) : null}
     </div>
   );
 }

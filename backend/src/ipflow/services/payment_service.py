@@ -1,15 +1,42 @@
 """
 支付服务
 Payment service for handling payment integration
+
+签名验证说明：
+- 微信支付 V3：Webhook 使用 ``WECHATPAY2-SHA256-RSA2048``，对 ``timestamp\nnonce\nbody\n`` 用微信平台证书
+  RSA 公钥验签。本实现提供 ``verify_wechat_v3_signature``；当未配置平台证书时**拒绝**（安全默认）。
+- 支付宝：异步回调使用 ``sign`` + ``sign_type=RSA2``，用支付宝公钥 RSA2048 验签。
+  本实现提供 ``verify_alipay_rsa2_signature``；未配置公钥时**拒绝**。
+
+凭证通过 ``settings`` 环境变量加载（``PAYMENT_WECHAT_API_V3_KEY``、``PAYMENT_ALIPAY_PUBLIC_KEY`` 等），
+未配置时验签一律返回 ``False``，避免「无签名也放行」的安全漏洞。
 """
+import base64
+import hashlib
+import json
 import logging
+import os
+import urllib.parse
 from datetime import datetime, timedelta
 from typing import Optional
 import uuid
-import hashlib
-import json
 
 logger = logging.getLogger(__name__)
+
+
+def _settings_get(key: str, default: Optional[str] = None) -> Optional[str]:
+    """从环境变量读取支付凭证（隔离对 settings 的耦合）."""
+    val = os.environ.get(key)
+    return val if val else default
+
+
+def _skip_signature_verify() -> bool:
+    """是否跳过签名验证（仅沙箱/本地仿真环境显式开启）.
+
+    生产环境务必保持 ``PAYMENT_SKIP_SIGNATURE_VERIFY`` 为空或 ``false``。
+    """
+    val = (os.environ.get("PAYMENT_SKIP_SIGNATURE_VERIFY") or "").lower()
+    return val in ("1", "true", "yes", "on")
 
 
 class PaymentService:
@@ -87,6 +114,122 @@ class PaymentService:
         # MD5签名并转大写
         return hashlib.md5(sign_str.encode("utf-8")).hexdigest().upper()
 
+    @staticmethod
+    def verify_wechat_v3_signature(
+        timestamp: str,
+        nonce: str,
+        body: str,
+        signature: str,
+        serial: Optional[str] = None,
+    ) -> bool:
+        """验证微信支付 V3 Webhook 签名.
+
+        待验签串：``timestamp\\nnonce\\nbody\\n``，使用微信平台证书的 RSA 公钥
+        （SHA256）验签。平台证书从 ``PAYMENT_WECHAT_PLATFORM_CERT`` 环境变量加载
+        （PEM 文本或路径）。
+
+        Args:
+            timestamp: HTTP 头 ``Wechatpay-Timestamp``
+            nonce: HTTP 头 ``Wechatpay-Nonce``
+            body: 原始请求体
+            signature: HTTP 头 ``Wechatpay-Signature``（Base64）
+            serial: 平台证书序列号（可选，用于多证书场景）
+
+        Returns:
+            ``True`` 验签通过；未配置平台证书或验签失败返回 ``False``
+        """
+        cert_pem = _settings_get("PAYMENT_WECHAT_PLATFORM_CERT")
+        if not cert_pem:
+            logger.warning("微信支付验签：未配置 PAYMENT_WECHAT_PLATFORM_CERT，拒绝")
+            return False
+        try:
+            from cryptography.hazmat.primitives import hashes, serialization
+            from cryptography.hazmat.primitives.asymmetric import padding
+            from cryptography.exceptions import InvalidSignature
+
+            # 支持文件路径或 PEM 文本
+            if cert_pem.strip().startswith("-----"):
+                cert_data = cert_pem.encode("utf-8")
+            else:
+                with open(cert_pem, "rb") as f:
+                    cert_data = f.read()
+            cert = serialization.load_pem_x509_certificate(cert_data)
+            public_key = cert.public_key()
+
+            message = f"{timestamp}\n{nonce}\n{body}\n".encode("utf-8")
+            sig_bytes = base64.b64decode(signature)
+            try:
+                public_key.verify(
+                    sig_bytes,
+                    message,
+                    padding.PKCS1v15(),
+                    hashes.SHA256(),
+                )
+                return True
+            except InvalidSignature:
+                logger.warning("微信支付验签：签名不匹配")
+                return False
+        except Exception as e:  # noqa: BLE001
+            logger.error("微信支付验签异常：%s", e)
+            return False
+
+    @staticmethod
+    def verify_alipay_rsa2_signature(params: dict, sign: str) -> bool:
+        """验证支付宝异步回调 RSA2 签名.
+
+        支付宝回调签名是对「除 ``sign``/``sign_type`` 外所有参数按字典序拼接、URL 编码后」
+        的字符串进行 RSA-SHA256 验签。支付宝公钥从 ``PAYMENT_ALIPAY_PUBLIC_KEY`` 加载。
+
+        Args:
+            params: 回调的全部参数（含 sign/sign_type，函数内部会剔除）
+            sign: ``sign`` 参数值（Base64）
+
+        Returns:
+            ``True`` 验签通过；未配置公钥或验签失败返回 ``False``
+        """
+        public_key_pem = _settings_get("PAYMENT_ALIPAY_PUBLIC_KEY")
+        if not public_key_pem:
+            logger.warning("支付宝验签：未配置 PAYMENT_ALIPAY_PUBLIC_KEY，拒绝")
+            return False
+        try:
+            from cryptography.hazmat.primitives import hashes, serialization
+            from cryptography.hazmat.primitives.asymmetric import padding
+            from cryptography.exceptions import InvalidSignature
+
+            # 公钥可为 PEM 文本或纯 base64 内容
+            pem = public_key_pem.strip()
+            if not pem.startswith("-----"):
+                pem = (
+                    "-----BEGIN PUBLIC KEY-----\n"
+                    + pem
+                    + "\n-----END PUBLIC KEY-----"
+                )
+            public_key = serialization.load_pem_public_key(pem.encode("utf-8"))
+
+            # 剔除 sign / sign_type，按 key 字典序拼接
+            filtered = {
+                k: v for k, v in params.items() if k not in ("sign", "sign_type") and v not in (None, "")
+            }
+            sign_str = "&".join(
+                f"{k}={v}" for k, v in sorted(filtered.items())
+            )
+
+            sig_bytes = base64.b64decode(sign)
+            try:
+                public_key.verify(
+                    sig_bytes,
+                    sign_str.encode("utf-8"),
+                    padding.PKCS1v15(),
+                    hashes.SHA256(),
+                )
+                return True
+            except InvalidSignature:
+                logger.warning("支付宝验签：签名不匹配")
+                return False
+        except Exception as e:  # noqa: BLE001
+            logger.error("支付宝验签异常：%s", e)
+            return False
+
 
 class WeChatPayService(PaymentService):
     """微信支付服务（V3版本）"""
@@ -150,9 +293,28 @@ class WeChatPayService(PaymentService):
         }
 
     async def verify_payment(self, payment_id: str, data: dict) -> bool:
-        """验证微信支付回调"""
-        # TODO: 实现微信支付签名验证
-        return True
+        """验证微信支付回调.
+
+        使用微信支付 V3 平台证书对回调进行 RSA-SHA256 验签。
+        未配置平台证书（``PAYMENT_WECHAT_PLATFORM_CERT``）时返回 ``False``，
+        避免无签名放行。
+
+        例外：当显式设置 ``PAYMENT_SKIP_SIGNATURE_VERIFY=true``（仅沙箱/仿真）
+        时跳过验签直接放行。
+        """
+        if _skip_signature_verify():
+            logger.warning("微信支付 verify_payment：已跳过验签（沙箱模式）")
+            return True
+        timestamp = data.get("timestamp") or data.get("Wechatpay-Timestamp", "")
+        nonce = data.get("nonce") or data.get("Wechatpay-Nonce", "")
+        body = data.get("body") or data.get("resource", {}).get("ciphertext", "")
+        signature = data.get("signature") or data.get("Wechatpay-Signature", "")
+        if not (timestamp and nonce and signature):
+            logger.warning("微信支付 verify_payment：缺少验签字段")
+            return False
+        return self.verify_wechat_v3_signature(
+            str(timestamp), str(nonce), body, str(signature)
+        )
 
 
 class AlipayService(PaymentService):
@@ -219,9 +381,22 @@ class AlipayService(PaymentService):
         return "&".join([f"{k}={v}" for k, v in sorted(params.items())])
 
     async def verify_payment(self, payment_id: str, data: dict) -> bool:
-        """验证支付宝回调"""
-        # TODO: 实现支付宝签名验证
-        return True
+        """验证支付宝异步回调.
+
+        使用支付宝公钥（``PAYMENT_ALIPAY_PUBLIC_KEY``）对 ``sign`` 进行 RSA2 验签。
+        未配置公钥或验签失败返回 ``False``，避免无签名放行。
+
+        例外：当显式设置 ``PAYMENT_SKIP_SIGNATURE_VERIFY=true``（仅沙箱/仿真）
+        时跳过验签直接放行。
+        """
+        if _skip_signature_verify():
+            logger.warning("支付宝 verify_payment：已跳过验签（沙箱模式）")
+            return True
+        sign = data.get("sign")
+        if not sign:
+            logger.warning("支付宝 verify_payment：缺少 sign 字段")
+            return False
+        return self.verify_alipay_rsa2_signature(data, str(sign))
 
 
 # 支付服务工厂

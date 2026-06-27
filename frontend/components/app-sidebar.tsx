@@ -28,6 +28,9 @@ import {
   Shield,
   Settings,
   LogOut,
+  CreditCard,
+  Building2,
+  ShieldCheck,
 } from "lucide-react";
 
 const mainNavItems = [
@@ -63,6 +66,16 @@ const resourceItems = [
     icon: FolderOpen,
   },
   {
+    title: "组织管理",
+    url: "/organizations",
+    icon: Building2,
+  },
+  {
+    title: "订阅计费",
+    url: "/subscriptions",
+    icon: CreditCard,
+  },
+  {
     title: "申请规范",
     url: "/rules",
     icon: Shield,
@@ -79,6 +92,7 @@ export function AppSidebar() {
   const { user, logout } = useAuth();
 
   const initials = (user?.displayName || user?.username || "U").slice(0, 2).toUpperCase();
+  const isAdminUser = user?.role === "admin" || user?.role === "super_admin";
 
   return (
     <Sidebar>
@@ -147,6 +161,24 @@ export function AppSidebar() {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+
+        {isAdminUser ? (
+          <SidebarGroup>
+            <SidebarGroupLabel>系统管理</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild isActive={pathname === "/admin"}>
+                    <Link href="/admin" data-testid="nav-admin">
+                      <ShieldCheck className="h-4 w-4" />
+                      <span>管理后台</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        ) : null}
       </SidebarContent>
 
       <SidebarFooter className="p-3">

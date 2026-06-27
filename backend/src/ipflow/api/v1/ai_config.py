@@ -60,6 +60,53 @@ async def get_ai_config(settings: Settings = Depends(get_settings)):
     )
 
 
+@router.put("/config", response_model=AIConfigResponse)
+async def update_ai_config(
+    request: UpdateAIConfigRequest,
+    settings: Settings = Depends(get_settings),
+):
+    """更新当前运行实例的 AI 配置.
+
+    在单实例部署中将配置热更新到内存中的配置单例，无需重启即可生效。
+    持久化到 ``.env`` 不在此端点职责范围内（敏感凭据应通过环境变量管理）。
+
+    Args:
+        request: 待更新的配置字段（均为可选，未提供则保持原值）
+
+    Returns:
+        更新后的完整 AI 配置
+    """
+    if request.provider is not None:
+        if request.provider not in ("ollama", "openai", "anthropic"):
+            raise HTTPException(
+                status_code=400, detail=f"不支持的 AI 提供商: {request.provider}"
+            )
+        settings.AI_PROVIDER = request.provider
+    if request.model is not None:
+        settings.AI_MODEL = request.model
+    if request.enabled is not None:
+        settings.ENABLE_AI_ASSISTANT = request.enabled
+    if request.ollama_base_url is not None:
+        settings.OLLAMA_BASE_URL = request.ollama_base_url
+
+    # 配置变更后让 LLM 服务重建提供商缓存
+    try:
+        from ipflow.services.llm_service import get_llm_service
+
+        get_llm_service().reset_provider()
+    except Exception:
+        # 重置失败不应阻断配置保存
+        pass
+
+    return AIConfigResponse(
+        provider=settings.AI_PROVIDER,
+        model=settings.AI_MODEL,
+        enabled=settings.ENABLE_AI_ASSISTANT,
+        ollama_base_url=settings.OLLAMA_BASE_URL,
+        available_providers=["ollama", "openai", "anthropic"],
+    )
+
+
 @router.get("/models", response_model=ModelsResponse)
 async def list_models(
     provider: Optional[str] = None,

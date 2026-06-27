@@ -15,6 +15,7 @@ from ipflow.db import get_db
 from ipflow.models import PatentData, Project, ProjectType
 from ipflow.models.user import User
 from ipflow.api.deps import require_active_user
+from ipflow.utils.enums import enum_value
 
 router = APIRouter()
 
@@ -249,7 +250,7 @@ async def preview_description(
     return {
         "project_id": str(project_id),
         "title": patent_data.title,
-        "patent_type": patent_data.patent_type.value,
+        "patent_type": enum_value(patent_data.patent_type),
         "full_text": full_text,
         "sections_count": len(sections),
         "has_complete_content": len(sections) >= 3,  # 至少包含技术领域、背景技术、发明内容

@@ -2,7 +2,7 @@
  * 认证相关 API
  */
 
-import { get, post } from "./client";
+import { get, post, put } from "./client";
 import type {
   ApiResponse,
   LoginRequest,
@@ -41,4 +41,12 @@ export const authApi = {
    */
   getMe: (): Promise<ApiResponse<User>> =>
     get("/auth/me"),
+
+  /**
+   * 更新当前用户资料（昵称、邮箱）
+   */
+  updateMe: (data: {
+    display_name?: string | null;
+    email?: string;
+  }): Promise<ApiResponse<User>> => put("/auth/me", data),
 };

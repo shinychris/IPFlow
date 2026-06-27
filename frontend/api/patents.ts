@@ -68,10 +68,32 @@ export const patentProofAssetsApi = {
   list: async (_projectId: string): Promise<any[]> => [],
 };
 
-// 占位，当前后端未提供专利合规独立路由
+// 专利合规检查：复用统一合规路由 /compliance/projects/{id}（按项目类型自动分发）
+export interface PatentComplianceResult {
+  rule_id: string;
+  rule_name: string;
+  category: string;
+  status: "passed" | "warning" | "failed" | "skipped";
+  message: string;
+  suggestion?: string | null;
+}
+
+export interface PatentComplianceReport {
+  project_id: string;
+  total_rules: number;
+  passed: number;
+  warnings: number;
+  failed: number;
+  overall_status: string;
+  can_export: boolean;
+  results: PatentComplianceResult[];
+}
+
 export const patentComplianceApi = {
-  getReport: async (_projectId: string): Promise<any> => ({ results: [] }),
-  check: async (_projectId: string): Promise<any> => ({ results: [] }),
+  getReport: (projectId: string): Promise<PatentComplianceReport> =>
+    get(`/compliance/projects/${projectId}`),
+  check: (projectId: string): Promise<PatentComplianceReport> =>
+    post(`/compliance/projects/${projectId}/check`),
 };
 
 export const patentExportApi = {

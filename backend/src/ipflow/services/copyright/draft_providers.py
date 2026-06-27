@@ -2,11 +2,16 @@
 
 from __future__ import annotations
 
+import asyncio
+import json
+import logging
 from dataclasses import dataclass
 from typing import Any
 
 from ipflow.config import Settings, get_settings
 from ipflow.models import Project
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -106,10 +111,132 @@ class ClaudeCodeCopyrightDraftProvider:
         )
 
 
+class LLMCopyrightDraftProvider:
+    """通过通用 LLM 服务（Ollama/OpenAI/Anthropic）生成草稿.
+
+    将此前孤立的 ``llm_service`` 接入草稿生成主流程：构造提示词调用配置的
+    LLM 提供商，解析返回的 JSON 作为草稿内容。LLM 不可用时回退到模板。
+    """
+
+    def __init__(self, settings: Settings | None = None) -> None:
+        self._settings = settings or get_settings()
+        self._fallback = TemplateCopyrightDraftProvider()
+
+    def _build_prompt(self, project: Project, inputs: dict[str, Any]) -> list[dict[str, str]]:
+        """构造生成草稿的提示词."""
+        payload = inputs or {}
+        inner = payload.get("inputs") or {}
+        extra_brief = (inner.get("extra_brief") or "").strip()
+        software_name = project.name
+        version = project.version or "1.0"
+
+        system = (
+            "你是软件著作权申报材料撰写助手。请根据用户提供的软件信息，"
+            "生成中国软件著作权登记所需的「软件基本信息」与「操作说明书」草稿。"
+            "严格按 JSON 输出，不要任何额外文字。"
+        )
+        schema_hint = {
+            "software_info": {
+                "software_full_name": "软件全称",
+                "software_short_name": "简称（≤20字）",
+                "version_number": "版本号",
+                "development_language": "开发语言",
+                "development_environment": "开发环境",
+                "runtime_environment": "运行环境",
+                "functional_description": "功能描述（100-300字）",
+                "technical_features": "技术特点（100-200字）",
+                "target_domain": "应用领域",
+            },
+            "manual": {
+                "title": "操作说明书标题",
+                "content_html": "HTML 正文，含产品概述、功能模块、操作流程等章节",
+            },
+        }
+        user = (
+            f"软件名称：{software_name}\n版本：{version}\n"
+            f"补充说明：{extra_brief or '（无）'}\n\n"
+            f"请按如下 JSON 结构输出（不要包含 Markdown 代码块标记）：\n"
+            f"{json.dumps(schema_hint, ensure_ascii=False, indent=2)}"
+        )
+        return [
+            {"role": "system", "content": system},
+            {"role": "user", "content": user},
+        ]
+
+    def _parse_llm_json(self, content: str, project: Project) -> DraftResult:
+        """解析 LLM 返回的 JSON；失败则回退模板."""
+        text = content.strip()
+        # 去除可能的 Markdown 代码块标记
+        if text.startswith("```"):
+            text = text.split("\n", 1)[-1]
+            if text.endswith("```"):
+                text = text[:-3].strip()
+        try:
+            data = json.loads(text)
+            software_info = data.get("software_info", {})
+            manual_data = data.get("manual", {})
+            software_info.setdefault("source", "ai")
+            manual = {
+                "template_type": "web",
+                "title": manual_data.get("title", f"{project.name} 操作说明书"),
+                "content_html": manual_data.get("content_html", ""),
+                "content_json": None,
+                "source": "ai",
+            }
+            return DraftResult(software_info=software_info, manual=manual)
+        except (json.JSONDecodeError, AttributeError) as e:
+            logger.warning("LLM 草稿 JSON 解析失败，回退模板：%s", e)
+            return self._fallback.generate(project, {})
+
+    def generate(
+        self,
+        project: Project,
+        inputs: dict[str, Any],
+        *,
+        code_root: Any | None = None,
+    ) -> DraftResult:
+        from ipflow.services.llm_service import LLMMessage, get_llm_service
+
+        messages = self._build_prompt(project, inputs)
+        try:
+            service = get_llm_service()
+            # provider.chat 是协程，在同步 generate 中通过事件循环执行
+            try:
+                loop = asyncio.get_event_loop()
+                if loop.is_running():  # 已在异步上下文（不应发生在后台线程）
+                    import concurrent.futures
+
+                    with concurrent.futures.ThreadPoolExecutor() as pool:
+                        response = pool.submit(
+                            lambda: asyncio.run(service.chat(
+                                [LLMMessage(role=m["role"], content=m["content"]) for m in messages]
+                            ))
+                        ).result()
+                else:
+                    response = loop.run_until_complete(
+                        service.chat(
+                            [LLMMessage(role=m["role"], content=m["content"]) for m in messages]
+                        )
+                    )
+            except RuntimeError:
+                response = asyncio.run(
+                    service.chat(
+                        [LLMMessage(role=m["role"], content=m["content"]) for m in messages]
+                    )
+                )
+            return self._parse_llm_json(response.content, project)
+        except Exception as e:  # noqa: BLE001
+            logger.warning("LLM 草稿生成失败，回退模板：%s", e)
+            return self._fallback.generate(project, inputs)
+
+
 def get_copyright_draft_provider(
     settings: Settings | None = None,
-) -> TemplateCopyrightDraftProvider | ClaudeCodeCopyrightDraftProvider:
+) -> TemplateCopyrightDraftProvider | ClaudeCodeCopyrightDraftProvider | LLMCopyrightDraftProvider:
     cfg = settings or get_settings()
-    if cfg.COPYRIGHT_DRAFT_BACKEND.strip().lower() == "claude_code":
+    backend = cfg.COPYRIGHT_DRAFT_BACKEND.strip().lower()
+    if backend == "claude_code":
         return ClaudeCodeCopyrightDraftProvider(cfg)
+    if backend == "llm":
+        return LLMCopyrightDraftProvider(cfg)
     return TemplateCopyrightDraftProvider()

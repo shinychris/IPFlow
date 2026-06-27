@@ -20,6 +20,7 @@ from ipflow.models import (
 )
 from ipflow.models.user import User
 from ipflow.api.deps import require_active_user
+from ipflow.utils.enums import enum_value
 
 router = APIRouter()
 
@@ -38,7 +39,7 @@ def generate_trademark_text(trademark_data: TrademarkData, nice_classes: list) -
     
     # 商标信息
     lines.append("一、商标信息")
-    lines.append(f"商标类型：{trademark_data.trademark_type.value}")
+    lines.append(f"商标类型：{enum_value(trademark_data.trademark_type)}")
     if trademark_data.trademark_name:
         lines.append(f"商标名称/文字：{trademark_data.trademark_name}")
     if trademark_data.description:
@@ -161,7 +162,7 @@ async def export_trademark(
 ====================
 
 商标名称：{trademark_data.trademark_name or "（未命名）"}
-商标类型：{trademark_data.trademark_type.value}
+商标类型：{enum_value(trademark_data.trademark_type)}
 申请类别：{len(nice_classes)} 个类别
 生成时间：{datetime.utcnow().isoformat()}
 
@@ -271,7 +272,7 @@ async def preview_export(
         "trademark_info": {
             "has_data": trademark_data is not None,
             "trademark_name": trademark_data.trademark_name if trademark_data else None,
-            "trademark_type": trademark_data.trademark_type.value if trademark_data else None,
+            "trademark_type": enum_value(trademark_data.trademark_type) if trademark_data else None,
         },
         "nice_classes": {
             "count": len(nice_classes),

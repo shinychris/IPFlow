@@ -212,6 +212,39 @@ class PatentJobRunner:
                     f"{c.claim_number}. {c.content}" for c in claims
                 )
                 zf.writestr(f"02_权利要求书_{patent_data.title}.txt", claims_text.encode("utf-8"))
+
+                # 同时输出 DOCX 版本（python-docx 可用时）
+                try:
+                    from ipflow.services.export import docx_available, render_docx
+
+                    if docx_available():
+                        spec_sections = [
+                            {"heading": "技术领域",
+                             "paragraphs": [patent_data.technical_field or ""]},
+                            {"heading": "背景技术",
+                             "paragraphs": [patent_data.background_art or ""]},
+                            {"heading": "发明内容",
+                             "paragraphs": [patent_data.abstract or ""]},
+                            {"heading": "具体实施方式",
+                             "paragraphs": [patent_data.implementation or ""]},
+                        ]
+                        spec_docx = render_docx(
+                            title=f"{patent_data.title} - 说明书",
+                            sections=spec_sections,
+                        )
+                        zf.writestr(f"01_说明书_{patent_data.title}.docx", spec_docx)
+
+                        claims_docx = render_docx(
+                            title=f"{patent_data.title} - 权利要求书",
+                            sections=[
+                                {"list_items": [
+                                    f"{c.claim_number}. {c.content}" for c in claims
+                                ]}
+                            ],
+                        )
+                        zf.writestr(f"02_权利要求书_{patent_data.title}.docx", claims_docx)
+                except Exception:  # noqa: BLE001
+                    pass  # DOCX 不可用时仅提供 TXT
             zip_buffer.seek(0)
             content = zip_buffer.getvalue()
 

@@ -60,10 +60,12 @@ def create_access_token(
     else:
         expire = datetime.utcnow() + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     
+    jti = secrets.token_urlsafe(32)
     to_encode = {
         "sub": str(user_id),
         "exp": expire,
         "type": "access",
+        "jti": jti,
         "iat": datetime.utcnow(),
     }
     
@@ -92,7 +94,8 @@ def create_refresh_token(user_id: str) -> str:
         "iat": datetime.utcnow(),
     }
     
-    # TODO: 存储到 Redis 用于失效管理
+    # TODO: 存储到 Redis 用于失效管理（refresh token 的 active 记录）
+    # 令牌吊销（黑名单）统一由 token_blacklist 服务在验证时检查
     
     return jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
 
@@ -122,6 +125,11 @@ def verify_access_token(token: str) -> str:
         if user_id is None:
             raise ValueError("Invalid token: missing subject")
         
+        # 检查令牌黑名单（登出后吊销）
+        from ipflow.core.token_blacklist import is_token_revoked
+        if is_token_revoked(payload.get("jti", "")):
+            raise ValueError("Token has been revoked")
+        
         return user_id
         
     except JWTError:
@@ -147,6 +155,11 @@ def decode_access_token(token: str) -> Optional[dict]:
         
         # 验证类型
         if payload.get("type") != "access":
+            return None
+        
+        # 检查令牌黑名单（登出后吊销）
+        from ipflow.core.token_blacklist import is_token_revoked
+        if is_token_revoked(payload.get("jti", "")):
             return None
         
         return payload
@@ -180,7 +193,10 @@ def verify_refresh_token(token: str) -> str:
         if user_id is None:
             raise ValueError("Invalid token: missing subject")
         
-        # TODO: 检查 Redis 黑名单
+        # 检查令牌黑名单（登出后吊销）
+        from ipflow.core.token_blacklist import is_token_revoked
+        if is_token_revoked(payload.get("jti", "")):
+            raise ValueError("Token has been revoked")
         
         return user_id
         

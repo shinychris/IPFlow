@@ -408,6 +408,14 @@ class LLMService:
             self._provider = self._create_provider()
         return self._provider
 
+    def reset_provider(self) -> None:
+        """清除已缓存的提供商实例.
+
+        在运行时通过 ``PUT /ai/config`` 修改配置后调用，使下一次
+        ``get_provider()`` 按新配置重建提供商。
+        """
+        self._provider = None
+
     def _create_provider(self) -> BaseLLMProvider:
         """根据配置创建对应的 LLM 提供商."""
         provider = self.settings.AI_PROVIDER.lower()

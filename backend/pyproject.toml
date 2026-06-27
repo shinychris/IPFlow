@@ -50,6 +50,8 @@ dependencies = [
     "psycopg2-binary>=2.9.11",
     # HTTP Client for AI services
     "httpx>=0.28.0",
+    # DOCX 导出（软著/专利/商标材料）
+    "python-docx>=1.1.0",
 ]
 
 [project.optional-dependencies]

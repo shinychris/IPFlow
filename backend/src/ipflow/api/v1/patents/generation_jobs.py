@@ -11,6 +11,7 @@ from sqlalchemy import desc, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ipflow.api.deps import require_active_user
+from ipflow.utils.enums import enum_value
 from ipflow.api.v1.generation_shared import base_profile_for_generation
 from ipflow.config import get_settings
 from ipflow.db import get_db
@@ -60,7 +61,7 @@ async def get_generation_context(
     allowed_hosts = settings.source_fetch_allowed_hosts_list
     return {
         "project_id": str(project.id),
-        "project_type": project.project_type.value,
+        "project_type": enum_value(project.project_type),
         "base_profile": base_profile_for_generation(project),
         "optional_inputs": {
             "extra_brief": project.description,

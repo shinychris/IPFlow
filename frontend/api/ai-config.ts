@@ -53,6 +53,24 @@ export async function getAIConfig(): Promise<AIConfig> {
   return response.data;
 }
 
+/** 更新 AI 配置的请求体（所有字段可选） */
+export interface UpdateAIConfigRequest {
+  provider?: string;
+  model?: string;
+  enabled?: boolean;
+  ollama_base_url?: string;
+}
+
+/**
+ * 更新 AI 配置（热更新当前运行实例）
+ */
+export async function updateAIConfig(
+  data: UpdateAIConfigRequest,
+): Promise<AIConfig> {
+  const response = await apiClient.put<AIConfig>("/ai/config", data);
+  return response.data;
+}
+
 /**
  * 获取可用模型列表
  * @param provider 指定提供商，不指定则使用当前配置的提供商

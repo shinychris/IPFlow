@@ -2,7 +2,7 @@
 
 > **版本**: v2.0  
 > **日期**: 2026年2月  
-> **目标**: 商业化级知识产权申请管理平台
+> **目标**: 知识产权申报材料辅助工具
 
 ---
 
@@ -323,7 +323,7 @@ class User(BaseUUIDModel, TimestampMixin, table=True):
     failed_login_attempts: int = Field(default=0)
     locked_until: Optional[datetime] = Field(default=None)
     
-    # 2FA（商业化扩展）
+    # 2FA（可选配套扩展）
     mfa_enabled: bool = Field(default=False)
     mfa_secret: Optional[str] = Field(default=None, sa_column=Column(String(255)))
     
@@ -1578,7 +1578,7 @@ export function useUpload(options: UseUploadOptions = {}) {
 
 ---
 
-## 七、商业化功能架构
+## 七、配套管理能力架构
 
 ### 7.1 订阅与计费系统
 

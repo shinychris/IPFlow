@@ -30,12 +30,14 @@ import {
   patentDescriptionApi,
   patentGenerationJobsApi,
   patentExportJobsApi,
+  patentComplianceApi,
 } from "@/api/patents";
 import {
   trademarkInfoApi,
   niceClassesApi,
   trademarkGenerationJobsApi,
   trademarkExportJobsApi,
+  trademarkComplianceApi,
 } from "@/api/trademarks";
 import { ManualTemplateType, type SoftwareInfoRequest } from "@/types";
 import { PatentWorkbenchPanel } from "@/components/project-workbench/patent-workbench-panel";
@@ -102,11 +104,11 @@ export default function EditProjectPage() {
     }
   }, [project]);
 
-  const projectType = (project as any)?.type ?? (project as any)?.project_type;
+  const projectType = project?.project_type ?? project?.type;
   const isCopyrightProject = projectType === "copyright";
   const isPatentProject = projectType === "patent";
   const isTrademarkProject = projectType === "trademark";
-  const flowStatus = ((project as any)?.flow_status as string | undefined) ?? "human_editing";
+  const flowStatus = (project?.flow_status as string | undefined) ?? "human_editing";
 
   const [patentForm, setPatentForm] = useState({
     patent_type: "invention",
@@ -181,6 +183,28 @@ export default function EditProjectPage() {
     queryKey: [`/api/v1/compliance/projects/${projectId}`],
     queryFn: () => complianceApi.getReport(projectId),
     enabled: !!projectId && isCopyrightProject,
+    retry: false,
+  });
+
+  // 专利合规检查
+  const {
+    data: patentComplianceData,
+    refetch: refetchPatentCompliance,
+  } = useQuery({
+    queryKey: [`/api/v1/compliance/projects/${projectId}`, "patent"],
+    queryFn: () => patentComplianceApi.getReport(projectId),
+    enabled: !!projectId && isPatentProject,
+    retry: false,
+  });
+
+  // 商标合规检查
+  const {
+    data: trademarkComplianceData,
+    refetch: refetchTrademarkCompliance,
+  } = useQuery({
+    queryKey: [`/api/v1/compliance/projects/${projectId}`, "trademark"],
+    queryFn: () => trademarkComplianceApi.getReport(projectId),
+    enabled: !!projectId && isTrademarkProject,
     retry: false,
   });
 
@@ -422,6 +446,28 @@ export default function EditProjectPage() {
     onSuccess: async () => {
       toast({ title: "检查完成", description: "合规结果已更新" });
       await refetchCompliance();
+    },
+    onError: () => {
+      toast({ title: "检查失败", description: "请补充材料后重试", variant: "destructive" });
+    },
+  });
+
+  const runPatentComplianceMutation = useMutation({
+    mutationFn: async () => patentComplianceApi.check(projectId),
+    onSuccess: async () => {
+      toast({ title: "检查完成", description: "专利合规结果已更新" });
+      await refetchPatentCompliance();
+    },
+    onError: () => {
+      toast({ title: "检查失败", description: "请补充材料后重试", variant: "destructive" });
+    },
+  });
+
+  const runTrademarkComplianceMutation = useMutation({
+    mutationFn: async () => trademarkComplianceApi.check(projectId),
+    onSuccess: async () => {
+      toast({ title: "检查完成", description: "商标合规结果已更新" });
+      await refetchTrademarkCompliance();
     },
     onError: () => {
       toast({ title: "检查失败", description: "请补充材料后重试", variant: "destructive" });
@@ -892,6 +938,9 @@ export default function EditProjectPage() {
           onNewClaimContentChange={setNewClaimContent}
           onAddClaim={() => addPatentClaimMutation.mutate()}
           addingClaim={addPatentClaimMutation.isPending}
+          complianceReport={patentComplianceData}
+          complianceChecking={runPatentComplianceMutation.isPending}
+          onRunCompliance={() => runPatentComplianceMutation.mutate()}
         />
       )}
 
@@ -920,6 +969,9 @@ export default function EditProjectPage() {
             goods_services: string[];
           }>}
           onRemoveClass={(associationId) => removeTrademarkClassMutation.mutate(associationId)}
+          complianceReport={trademarkComplianceData}
+          complianceChecking={runTrademarkComplianceMutation.isPending}
+          onRunCompliance={() => runTrademarkComplianceMutation.mutate()}
         />
       )}
     </div>

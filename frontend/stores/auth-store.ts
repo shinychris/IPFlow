@@ -15,6 +15,8 @@ interface AuthState {
   isAuthenticated: boolean;
   isLoading: boolean;
   error: string | null;
+  /** persist 是否已完成水合（用于路由守卫避免 hydration 竞态误重定向） */
+  hasHydrated: boolean;
 
   // Actions
   login: (data: LoginRequest) => Promise<void>;
@@ -35,6 +37,7 @@ export const useAuthStore = create<AuthState>()(
       isAuthenticated: false,
       isLoading: false,
       error: null,
+      hasHydrated: false,
 
       // 登录
       login: async (data: LoginRequest) => {
@@ -144,6 +147,11 @@ export const useAuthStore = create<AuthState>()(
         refreshToken: state.refreshToken,
         isAuthenticated: state.isAuthenticated,
       }),
+      onRehydrateStorage: () => (state) => {
+        if (state) {
+          state.hasHydrated = true;
+        }
+      },
     }
   )
 );

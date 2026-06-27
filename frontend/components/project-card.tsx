@@ -62,13 +62,13 @@ const typeBgColors = {
 };
 
 export function ProjectCard({ project, onDelete, onDuplicate, onExport }: ProjectCardProps) {
-  const rawProjectType = (project as any).type ?? (project as any).project_type;
+  const rawProjectType = project.project_type ?? project.type;
   const projectType: "copyright" | "patent" | "trademark" =
     rawProjectType === "patent" || rawProjectType === "trademark" ? rawProjectType : "copyright";
-  const currentStep = (project as any).currentStep ?? (project as any).current_step ?? 1;
-  const flowStatus = (project as any).flow_status as string | undefined;
-  const createdAt = (project as any).createdAt ?? (project as any).created_at;
-  const updatedAt = (project as any).updatedAt ?? (project as any).updated_at;
+  const currentStep = project.current_step ?? 1;
+  const flowStatus = project.flow_status;
+  const createdAt = project.created_at;
+  const updatedAt = project.updated_at;
   const maxSteps = getMaxSteps(projectType);
   const progressPercentage = ((currentStep - 1) / (maxSteps - 1)) * 100;
   const Icon = typeIcons[projectType] || FileCode;

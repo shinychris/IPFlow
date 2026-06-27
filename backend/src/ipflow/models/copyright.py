@@ -11,6 +11,10 @@ from sqlalchemy import Column, String, Integer, Text, DateTime, Boolean, Foreign
 from sqlalchemy.types import JSON
 from sqlmodel import Field, SQLModel
 
+# 重导出说明书模板类型枚举，便于 `from ipflow.models.copyright import ManualTemplateType`
+# （该枚举统一定义在 enums.py，避免多处重复定义）
+from ipflow.models.enums import ManualTemplateType  # noqa: E402,F401
+
 
 class CopyrightData(SQLModel, table=True):
     """软著项目详细信息.

@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__web-reader__webReader",
+      "Bash(ls -la /Users/chris/CodingZone/ProjectsBase/4-Web-Applications/IPFlow/frontend/app/\\\\\\(dashboard\\\\\\)/)",
+      "Bash(ls -la /Users/chris/CodingZone/ProjectsBase/4-Web-Applications/IPFlow/frontend/app/\\\\\\(auth\\\\\\)/)",
+      "Bash(pnpm dev)",
+      "Bash(pnpm install)",
+      "Bash(timeout 5 uvicorn src.ipflow.main:app --reload --port 8000)",
+      "Bash(python -c \"from ipflow.api.v1 import api_router; print\\(''Import successful''\\)\")",
+      "Bash(PYTHONPATH=/Users/chris/CodingZone/ProjectsBase/4-Web-Applications/IPFlow/backend/src python -c \"from ipflow.api.v1 import api_router; print\\(''Import successful''\\)\")",
+      "Bash(PYTHONPATH=/Users/chris/CodingZone/ProjectsBase/4-Web-Applications/IPFlow/backend/src python -c \":*)",
+      "Bash(python -c \":*)"
+    ]
+  }
+}

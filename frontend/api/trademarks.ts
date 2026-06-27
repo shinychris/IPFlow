@@ -57,9 +57,32 @@ export const trademarkProofAssetsApi = {
   list: async (_projectId: string): Promise<any[]> => [],
 };
 
+// 商标合规检查：复用统一合规路由 /compliance/projects/{id}（按项目类型自动分发）
+export interface TrademarkComplianceResult {
+  rule_id: string;
+  rule_name: string;
+  category: string;
+  status: "passed" | "warning" | "failed" | "skipped";
+  message: string;
+  suggestion?: string | null;
+}
+
+export interface TrademarkComplianceReport {
+  project_id: string;
+  total_rules: number;
+  passed: number;
+  warnings: number;
+  failed: number;
+  overall_status: string;
+  can_export: boolean;
+  results: TrademarkComplianceResult[];
+}
+
 export const trademarkComplianceApi = {
-  getReport: async (_projectId: string): Promise<any> => ({ results: [] }),
-  check: async (_projectId: string): Promise<any> => ({ results: [] }),
+  getReport: (projectId: string): Promise<TrademarkComplianceReport> =>
+    get(`/compliance/projects/${projectId}`),
+  check: (projectId: string): Promise<TrademarkComplianceReport> =>
+    post(`/compliance/projects/${projectId}/check`),
 };
 
 export const trademarkExportApi = {

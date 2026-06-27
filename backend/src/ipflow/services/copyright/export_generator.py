@@ -48,46 +48,47 @@ class ExportGenerator:
         output_format: str = "text",
     ) -> ExportResult:
         """生成导出包.
-        
+
         Args:
             config: 导出配置
             software_info: 软件信息
             code_pages: 代码页数据
             manual: 说明书数据
-            output_format: 输出格式（text/pdf）
-            
+            output_format: 输出格式（``text`` 纯文本 / ``docx`` Word 文档）
+
         Returns:
             导出结果
         """
         zip_buffer = io.BytesIO()
-        
+
         with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zf:
             # 1. 软件信息
-            self._add_software_info(zf, config, software_info)
-            
+            self._add_software_info(zf, config, software_info, output_format)
+
             # 2. 源代码（分页格式）
             self._add_source_code(zf, config, code_pages)
-            
+
             # 3. 操作说明书
             if manual:
-                self._add_manual(zf, config, manual)
-            
+                self._add_manual(zf, config, manual, output_format)
+
             # 4. 材料清单
             self._add_materials_list(zf, config, software_info, code_pages, manual)
-            
+
             # 5. 打印指南
             self._add_printing_guide(zf, config)
-            
+
             # 6. 网报对照表
             self._add_online_submission_guide(zf, config, software_info)
-        
+
         zip_buffer.seek(0)
         content = zip_buffer.read()
-        
+
         # 生成文件名
         safe_name = self._sanitize_filename(config.software_name)
-        file_name = f"软著申请_{safe_name}_{config.version}_{datetime.now().strftime('%Y%m%d')}.zip"
-        
+        ext = "docx" if output_format.lower() == "docx" else "zip"
+        file_name = f"软著申请_{safe_name}_{config.version}_{datetime.now().strftime('%Y%m%d')}.{ext}"
+
         return ExportResult(
             file_name=file_name,
             file_size=len(content),
@@ -108,8 +109,40 @@ class ExportGenerator:
         zf: zipfile.ZipFile,
         config: ExportConfig,
         software_info: dict,
+        output_format: str = "text",
     ) -> None:
         """添加软件信息文件."""
+        if output_format.lower() == "docx" and self._docx_available():
+            try:
+                from ipflow.services.export import render_docx
+
+                key_values = [
+                    ("软件全称", config.software_name),
+                    ("软件简称", software_info.get('software_short_name', '无')),
+                    ("版本号", config.version),
+                    ("开发语言", software_info.get('development_language', '')),
+                    ("开发环境", software_info.get('development_environment', '')),
+                    ("运行环境", software_info.get('runtime_environment', '')),
+                    ("代码行数", f"{software_info.get('code_line_count', 0)} 行"),
+                    ("完成日期", config.completion_date),
+                    ("首次发表日期", config.first_publication_date or '未发表'),
+                    ("面向领域", software_info.get('target_domain', '')),
+                ]
+                docx_bytes = render_docx(
+                    title=f"{config.software_name} - 软件著作权申请信息",
+                    sections=[
+                        {"heading": "一、基本信息", "key_values": key_values},
+                        {"heading": "二、功能描述",
+                         "paragraphs": [software_info.get('functional_description', '')]},
+                        {"heading": "三、技术特点",
+                         "paragraphs": [software_info.get('technical_features', '')]},
+                    ],
+                )
+                zf.writestr("01_软件信息.docx", docx_bytes)
+                return
+            except Exception:  # noqa: BLE001
+                pass  # DOCX 生成失败则降级 TXT
+
         content = f"""软件著作权申请 - 软件信息
 ================================
 
@@ -140,6 +173,16 @@ class ExportGenerator:
 生成时间：{datetime.now().isoformat()}
 """
         zf.writestr("01_软件信息.txt", content.encode('utf-8'))
+
+    @staticmethod
+    def _docx_available() -> bool:
+        """检查 DOCX 导出能力是否可用。"""
+        try:
+            from ipflow.services.export import docx_available
+
+            return docx_available()
+        except Exception:  # noqa: BLE001
+            return False
     
     def _add_source_code(
         self,
@@ -171,15 +214,31 @@ class ExportGenerator:
         zf: zipfile.ZipFile,
         config: ExportConfig,
         manual: dict,
+        output_format: str = "text",
     ) -> None:
         """添加操作说明书."""
         title = manual.get('title', '操作说明书')
         content_html = manual.get('content_html', '')
-        
-        # 简单移除 HTML 标签
+
+        # DOCX 输出：解析 HTML 片段渲染为 Word 文档
+        if output_format.lower() == "docx" and self._docx_available():
+            try:
+                from ipflow.services.export import render_docx
+
+                docx_bytes = render_docx(
+                    title=title,
+                    subtitle=f"{config.software_name} {config.version}",
+                    sections=[{"html": content_html}] if content_html else [],
+                )
+                zf.writestr("03_操作说明书.docx", docx_bytes)
+                return
+            except Exception:  # noqa: BLE001
+                pass  # 降级 TXT
+
+        # 简单移除 HTML 标签（TXT 降级）
         import re
         text_content = re.sub(r'<[^>]+>', '', content_html)
-        
+
         full_content = f"""{config.software_name} {config.version}
 {title}
 {'=' * 80}

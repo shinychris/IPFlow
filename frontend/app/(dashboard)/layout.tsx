@@ -4,6 +4,7 @@ import { AppSidebar } from "@/components/app-sidebar";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { useAuth } from "@/hooks/use-auth";
+import { useAuthStore } from "@/stores/auth-store";
 import { Loader2 } from "lucide-react";
 import { redirect } from "next/navigation";
 
@@ -13,8 +14,10 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   const { isAuthenticated, isLoading } = useAuth();
+  // 等待 Zustand persist 从 localStorage 水合完成，避免 hydration 竞态误重定向
+  const hasHydrated = useAuthStore((s) => s.hasHydrated);
 
-  if (isLoading) {
+  if (isLoading || !hasHydrated) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />

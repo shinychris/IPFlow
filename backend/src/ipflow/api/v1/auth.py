@@ -78,6 +78,15 @@ class TokenRefreshRequest(BaseModel):
     refresh_token: str = Field(..., description="刷新令牌", min_length=1)
 
 
+class UserProfileUpdateRequest(BaseModel):
+    """用户资料更新请求模型."""
+
+    display_name: Optional[str] = Field(
+        None, description="显示名称（昵称）", max_length=100
+    )
+    email: Optional[EmailStr] = Field(None, description="邮箱地址", max_length=255)
+
+
 class TokenResponse(BaseModel):
     """令牌响应模型（OAuth2 标准格式）."""
     
@@ -398,24 +407,37 @@ async def login(
     response_model=SuccessResponse,
     status_code=status.HTTP_200_OK,
     summary="用户登出",
-    description="用户登出（预留端点，当前仅返回成功）.",
+    description="用户登出，吊销当前访问令牌。",
 )
 async def logout(
+    authorization: Annotated[Optional[str], Header(alias="Authorization")] = None,
     current_user: User = Depends(get_current_user),
 ) -> SuccessResponse:
     """用户登出.
-    
+
+    将当前访问令牌加入黑名单（令牌吊销）。
+
+    黑名单服务优先使用 Redis（多实例共享），Redis 不可用时降级到进程内集合。
+    客户端在收到响应后仍应删除本地存储的令牌。
+
     Args:
+        authorization: Authorization 请求头（Bearer 令牌）
         current_user: 当前认证用户
-        
+
     Returns:
         成功响应
-        
-    Note:
-        此端点当前为预留实现。完整实现需要 Redis 来管理令牌黑名单。
     """
-    # TODO: 将令牌添加到 Redis 黑名单
-    # 当前仅返回成功，客户端应删除本地存储的令牌
+    from ipflow.core.token_blacklist import revoke_token
+    from ipflow.core.security import decode_access_token
+
+    if authorization and authorization.lower().startswith("bearer "):
+        token = authorization.split(" ", 1)[1].strip()
+        payload = decode_access_token(token)
+        # 注意：decode_access_token 会检查黑名单，此处用于读取 jti/exp；
+        # 由于当前令牌尚未吊销，payload 应非空。
+        if payload:
+            revoke_token(payload.get("jti", ""), payload.get("exp"))
+
     return SuccessResponse(
         code="SUCCESS",
         message="登出成功",
@@ -500,6 +522,65 @@ async def get_me(
     return SuccessResponse(
         code="SUCCESS",
         message="获取用户信息成功",
+        data=UserResponse(
+            id=str(current_user.id),
+            email=current_user.email,
+            username=current_user.username,
+            display_name=current_user.display_name,
+            role=current_user.role,
+            status=current_user.status,
+            created_at=current_user.created_at,
+            updated_at=current_user.updated_at,
+            last_login_at=current_user.last_login_at,
+        ),
+    )
+
+
+@router.put(
+    "/auth/me",
+    response_model=SuccessResponse,
+    status_code=status.HTTP_200_OK,
+    summary="更新当前用户资料",
+    description="更新当前认证用户的昵称等个人资料。",
+)
+async def update_me(
+    request: UserProfileUpdateRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> SuccessResponse:
+    """更新当前用户资料.
+
+    Args:
+        request: 待更新的资料字段（均为可选）
+        current_user: 当前认证用户
+        db: 数据库会话
+
+    Returns:
+        更新后的用户信息
+
+    Raises:
+        ValidationException: 邮箱已被其他用户占用
+    """
+    if request.display_name is not None:
+        current_user.display_name = request.display_name.strip() or None
+
+    if request.email is not None:
+        new_email = request.email.lower()
+        if new_email != current_user.email:
+            existing = await get_user_by_email(db, new_email)
+            if existing and str(existing.id) != str(current_user.id):
+                raise ValidationException(
+                    message="该邮箱已被注册",
+                    field_errors=[{"field": "email", "message": "邮箱已被使用"}],
+                )
+            current_user.email = new_email
+
+    await db.commit()
+    await db.refresh(current_user)
+
+    return SuccessResponse(
+        code="SUCCESS",
+        message="更新成功",
         data=UserResponse(
             id=str(current_user.id),
             email=current_user.email,

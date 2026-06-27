@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,7 +10,6 @@ import { Shield, Loader2 } from "lucide-react";
 
 export default function RegisterPage() {
   const { register, error: authError } = useAuth();
-  const router = useRouter();
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [displayName, setDisplayName] = useState("");
@@ -40,8 +38,8 @@ export default function RegisterPage() {
         password,
         displayName: displayName || undefined,
       });
-      router.push("/dashboard");
-      router.refresh();
+      // 注册成功后跳转工作台（硬跳转，避免 Zustand persist 水合竞态）
+      window.location.href = "/dashboard";
     } catch (err: any) {
       let errorMsg = "注册失败，请稍后重试";
       if (err?.message) {

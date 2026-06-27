@@ -216,6 +216,35 @@ class TrademarkJobRunner:
                 text = generate_trademark_text(trademark_data, classes)
                 tname = trademark_data.trademark_name or "未命名商标"
                 zf.writestr(f"01_商标注册申请书_{tname}.txt", text.encode("utf-8"))
+
+                # 同时输出 DOCX 版本（python-docx 可用时）
+                try:
+                    from ipflow.services.export import docx_available, render_docx
+                    from ipflow.utils.enums import enum_value
+
+                    if docx_available():
+                        info_kv = [
+                            ("商标名称", trademark_data.trademark_name or ""),
+                            ("商标类型", enum_value(trademark_data.trademark_type) or ""),
+                            ("商标描述", trademark_data.description or "无"),
+                            ("颜色说明", trademark_data.color_claim or "无"),
+                            ("图样说明", trademark_data.design_description or "无"),
+                        ]
+                        class_items = [
+                            f"第{c['class_number']}类 {c['class_name']}："
+                            + ("、".join(c["goods_services"] or []))
+                            for c in classes
+                        ]
+                        docx_bytes = render_docx(
+                            title=f"{tname} - 商标注册申请书",
+                            sections=[
+                                {"heading": "一、商标基本信息", "key_values": info_kv},
+                                {"heading": "二、商品/服务分类", "list_items": class_items},
+                            ],
+                        )
+                        zf.writestr(f"01_商标注册申请书_{tname}.docx", docx_bytes)
+                except Exception:  # noqa: BLE001
+                    pass  # DOCX 不可用时仅提供 TXT
             zip_buffer.seek(0)
             content = zip_buffer.getvalue()
 

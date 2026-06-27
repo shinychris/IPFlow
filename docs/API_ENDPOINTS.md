@@ -112,7 +112,7 @@
 | GET | `/compliance/projects/{id}` | 获取合规检查 |
 | POST | `/compliance/projects/{id}/run` | 执行合规检查 |
 
-### 组织管理
+### 组织管理（配套协作能力）
 
 | 方法 | 端点 | 说明 |
 |------|------|------|
@@ -127,7 +127,7 @@
 | POST | `/organizations/{id}/invite` | 生成邀请链接 |
 | POST | `/organizations/join` | 加入组织 |
 
-### 订阅管理
+### 订阅管理（可选配套模块）
 
 | 方法 | 端点 | 说明 |
 |------|------|------|
@@ -141,7 +141,7 @@
 | GET | `/subscriptions/usage` | 使用统计 |
 | POST | `/subscriptions/webhook` | 支付 Webhook |
 
-### 管理后台
+### 管理后台（配套运维能力）
 
 | 方法 | 端点 | 说明 |
 |------|------|------|
