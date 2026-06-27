@@ -17,6 +17,8 @@ interface AuthState {
   error: string | null;
   /** persist 是否已完成水合（用于路由守卫避免 hydration 竞态误重定向） */
   hasHydrated: boolean;
+  /** 当前激活的组织 ID（租户上下文，注入 X-Tenant-ID）*/
+  activeOrgId: string | null;
 
   // Actions
   login: (data: LoginRequest) => Promise<void>;
@@ -24,6 +26,7 @@ interface AuthState {
   logout: () => Promise<void>;
   fetchUser: () => Promise<void>;
   refreshAccessToken: () => Promise<string>;
+  setActiveOrg: (orgId: string) => void;
   clearError: () => void;
 }
 
@@ -38,6 +41,7 @@ export const useAuthStore = create<AuthState>()(
       isLoading: false,
       error: null,
       hasHydrated: false,
+      activeOrgId: null,
 
       // 登录
       login: async (data: LoginRequest) => {
@@ -105,6 +109,7 @@ export const useAuthStore = create<AuthState>()(
             refreshToken: null,
             isAuthenticated: false,
             error: null,
+            activeOrgId: null,
           });
         }
       },
@@ -115,6 +120,19 @@ export const useAuthStore = create<AuthState>()(
           const response = await authApi.getMe();
           if (response.success && response.data) {
             set({ user: response.data });
+            // 解析当前用户的默认组织（用于租户上下文 X-Tenant-ID）。
+            // 个人组织在注册时由后端自动创建，取列表第一个作为默认。
+            try {
+              const { get } = await import("@/api/client");
+              const orgs = await get<
+                Array<{ id: string }>
+              >("/organizations");
+              if (orgs && orgs.length > 0 && !get().activeOrgId) {
+                set({ activeOrgId: orgs[0].id });
+              }
+            } catch {
+              // 组织列表获取失败不阻断登录流程
+            }
           }
         } catch (error) {
           // 获取失败时登出
@@ -137,6 +155,9 @@ export const useAuthStore = create<AuthState>()(
         throw new Error("Failed to refresh token");
       },
 
+      // 设置当前激活组织（租户上下文）
+      setActiveOrg: (orgId: string) => set({ activeOrgId: orgId }),
+
       // 清除错误
       clearError: () => set({ error: null }),
     }),
@@ -146,6 +167,7 @@ export const useAuthStore = create<AuthState>()(
         accessToken: state.accessToken,
         refreshToken: state.refreshToken,
         isAuthenticated: state.isAuthenticated,
+        activeOrgId: state.activeOrgId,
       }),
       onRehydrateStorage: () => (state) => {
         if (state) {

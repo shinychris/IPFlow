@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import re
 from dataclasses import dataclass
 from typing import Any
 
@@ -166,11 +167,10 @@ class LLMCopyrightDraftProvider:
     def _parse_llm_json(self, content: str, project: Project) -> DraftResult:
         """解析 LLM 返回的 JSON；失败则回退模板."""
         text = content.strip()
-        # 去除可能的 Markdown 代码块标记
-        if text.startswith("```"):
-            text = text.split("\n", 1)[-1]
-            if text.endswith("```"):
-                text = text[:-3].strip()
+        # 去除可能的 Markdown 代码块标记（兼容单行 ```json{...}``` 与多行围栏）
+        text = re.sub(r"^\s*```(?:json)?\s*", "", text)
+        text = re.sub(r"\s*```\s*$", "", text)
+        text = text.strip()
         try:
             data = json.loads(text)
             software_info = data.get("software_info", {})

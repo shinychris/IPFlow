@@ -256,15 +256,17 @@ async def handle_webhook(
         logger.debug("subscriptions.handle_webhook: 幂等检查跳过：%s", e)
 
     # 记录 Webhook 日志（审计）
+    # 签名仅作审计记录（模型无 signature 列，避免污染日志表）
+    logger.debug("subscriptions.handle_webhook: 原始签名=%s", signature)
     try:
         from ipflow.models.payment import PaymentWebhookLog
 
         log_entry = PaymentWebhookLog(
+            id=f"log_{datetime.now().strftime('%Y%m%d%H%M%S%f')}",
             event_id=event_id,
             provider=provider,
             payload=payload[:8000] if payload else "",
-            signature=signature or "",
-            status="processed",
+            success=True,
             created_at=datetime.utcnow(),
         )
         db.add(log_entry)
@@ -367,7 +369,13 @@ def _apply_subscription_event(
         if isinstance(period_end, (int, float)):
             subscription.current_period_end = datetime.utcfromtimestamp(period_end)
         if "cancel_at_period_end" in data:
-            subscription.cancel_at_period_end = bool(data["cancel_at_period_end"])
+            cap = data["cancel_at_period_end"]
+            # 兼容表单回调传来的字符串布尔值（如支付宝异步通知）
+            subscription.cancel_at_period_end = (
+                str(cap).lower() in ("true", "1", "yes")
+                if isinstance(cap, str)
+                else bool(cap)
+            )
         return
 
     # 支付失败 / 逾期

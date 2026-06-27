@@ -101,7 +101,7 @@ class Settings(BaseSettings):
     # 软著草稿生成：template（模板）或 claude_code（Claude Code CLI）
     COPYRIGHT_DRAFT_BACKEND: str = Field(
         default="template",
-        description="软著 AI 草稿后端: template, claude_code",
+        description="软著 AI 草稿后端: template, claude_code, llm",
     )
     COPYRIGHT_DRAFT_FALLBACK_TO_TEMPLATE: bool = Field(
         default=False,

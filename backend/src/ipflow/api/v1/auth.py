@@ -9,6 +9,8 @@
 """
 
 from typing import Annotated, Any, Optional
+from uuid import uuid4
+import logging
 
 from fastapi import APIRouter, Depends, HTTPException, Header, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
@@ -26,6 +28,9 @@ from ipflow.core.security import (
 )
 from ipflow.db import get_db
 from ipflow.models.user import User, UserRole, UserStatus, UserResponse
+from ipflow.models import Organization, OrganizationMember
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["认证"])
 security = HTTPBearer(auto_error=False)
@@ -317,7 +322,28 @@ async def register(
         password=request.password.get_secret_value(),
         display_name=request.display_name,
     )
-    
+
+    # 为新用户创建个人组织（默认租户上下文，使订阅/配额等组织级能力开箱可用）
+    # 出错时仅记录日志并继续，保证注册主流程永不因此失败
+    try:
+        personal_org = Organization(
+            name=f"{user.display_name or user.username} 的个人空间",
+            slug=f"personal-{user.username}-{uuid4().hex[:6]}",
+            business_type="individual",
+        )
+        db.add(personal_org)
+        await db.flush()  # 获取 personal_org.id
+
+        member = OrganizationMember(
+            organization_id=personal_org.id,
+            user_id=user.id,
+            role=UserRole.ADMIN,
+        )
+        db.add(member)
+        await db.commit()
+    except Exception as e:  # noqa: BLE001
+        logger.warning("为用户 %s 创建个人组织失败，已跳过：%s", getattr(user, "id", None), e)
+
     # 生成访问令牌
     access_token = create_access_token(str(user.id))
     

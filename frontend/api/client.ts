@@ -42,12 +42,24 @@ function onTokenRefreshed(newToken: string) {
   refreshSubscribers = [];
 }
 
-// 请求拦截器 - 添加认证头
+// 请求拦截器 - 添加认证头与租户上下文
 apiClient.interceptors.request.use(
   (config) => {
-    const token = useAuthStore.getState().accessToken;
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
+    const { accessToken, activeOrgId } = useAuthStore.getState();
+    if (accessToken) {
+      config.headers.Authorization = `Bearer ${accessToken}`;
+    }
+    // 注入组织租户上下文（订阅/配额等组织级接口需要 X-Tenant-ID）
+    // 跳过组织列表/认证等不需租户的路径
+    const url = config.url || "";
+    const needsTenant =
+      activeOrgId &&
+      !url.startsWith("/auth/") &&
+      url !== "/organizations" &&
+      !url.startsWith("/organizations/join") &&
+      !url.startsWith("/subscriptions/plans");
+    if (needsTenant && !config.headers?.["X-Tenant-ID"]) {
+      config.headers["X-Tenant-ID"] = activeOrgId;
     }
     return config;
   },

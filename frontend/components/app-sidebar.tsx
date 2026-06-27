@@ -92,7 +92,7 @@ export function AppSidebar() {
   const { user, logout } = useAuth();
 
   const initials = (user?.displayName || user?.username || "U").slice(0, 2).toUpperCase();
-  const isAdminUser = user?.role === "admin" || user?.role === "super_admin";
+  const isAdminUser = user?.role === "super_admin";
 
   return (
     <Sidebar>

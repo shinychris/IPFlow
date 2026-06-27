@@ -209,9 +209,22 @@ export default function SubscriptionsPage() {
               />
               <UsageProgress
                 label="存储"
-                used={Number((usage.storage as { used: number })?.used ?? 0)}
-                limit={(usage.storage as { limit: number | null })?.limit}
-                unit=" MB"
+                // 后端 StorageUsageStats 返回 used_gb / limit_gb（无单位后缀，由组件自处理）
+                used={Number(
+                  (usage.storage as { used_gb?: number; used_bytes?: number })
+                    ?.used_gb ??
+                    (usage.storage as { used_bytes?: number })?.used_bytes ??
+                    0,
+                )}
+                limit={
+                  (usage.storage as {
+                    limit_gb?: number | null;
+                    limit_bytes?: number | null;
+                  })?.limit_gb ??
+                  (usage.storage as { limit_bytes?: number | null })
+                    ?.limit_bytes ??
+                  null
+                }
               />
               <UsageProgress
                 label="成员数"
@@ -295,7 +308,9 @@ export default function SubscriptionsPage() {
                 >
                   <div>
                     <div className="font-medium">
-                      ¥{inv.amount ?? "—"}
+                      ¥{(inv as { amount_due?: number; amount_paid?: number }).amount_due ??
+                        (inv as { amount_paid?: number }).amount_paid ??
+                        "—"}
                       {inv.currency ? ` ${inv.currency}` : ""}
                     </div>
                     <div className="text-xs text-muted-foreground">

@@ -206,7 +206,7 @@ class ExportGenerator:
             parts.append(page.get('content', ''))
             parts.append("")  # 页面间隔
         
-        content = "\\n".join(parts)
+        content = "\n".join(parts)
         zf.writestr("02_源代码_鉴别材料.txt", content.encode('utf-8'))
     
     def _add_manual(
@@ -285,7 +285,7 @@ class ExportGenerator:
             "4. 如有多份代码包，只需提交一份的源代码",
         ])
         
-        content = "\\n".join(items)
+        content = "\n".join(items)
         zf.writestr("04_材料清单.txt", content.encode('utf-8'))
     
     def _add_printing_guide(

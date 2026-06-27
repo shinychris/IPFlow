@@ -24,8 +24,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { adminApi } from "@/api/admin";
 
-const isAdmin = (role: unknown) =>
-  role === "admin" || role === "super_admin";
+const isAdmin = (role: unknown) => role === "super_admin";
 
 export default function AdminPage() {
   const { toast } = useToast();

@@ -7,7 +7,7 @@ export type UserRole = typeof userRoles[number];
 export interface User {
   id: string;
   username: string;
-  password: string;
+  // 注意：密码绝不应出现在客户端类型中（已移除 password 字段，避免后端密钥形状泄漏到前端）
   displayName: string | null;
   name?: string;
   avatar?: string;

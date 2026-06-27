@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -29,6 +30,7 @@ const NOTIF_PREF_KEY = "ipflow:notification-prefs";
 
 export default function SettingsPage() {
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const user = useAuthStore((s) => s.user);
   const fetchUser = useAuthStore((s) => s.fetchUser);
 
@@ -158,6 +160,8 @@ export default function SettingsPage() {
     try {
       await authApi.updateMe({ display_name: displayName });
       await fetchUser();
+      // 失效 react-query 中的用户缓存，使 sidebar/HoverCard 等读取 useAuth().user 的组件同步刷新
+      await queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
       toast({
         title: "保存成功",
         description: "个人信息已更新",
@@ -402,7 +406,8 @@ export default function SettingsPage() {
             <Button
               className="w-full"
               onClick={handleSaveAIConfig}
-              disabled={aiSaving}
+              // 禁用条件：保存中，或提供商未选择（避免空字符串被当真值写入配置）
+              disabled={aiSaving || !selectedProvider}
             >
               {aiSaving ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
