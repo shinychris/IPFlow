@@ -400,9 +400,9 @@ class ComplianceChecker:
         """检查代码材料."""
         results = []
         
-        total_lines = code_bundle.get("total_lines", 0)
-        total_files = code_bundle.get("total_files", 0)
-        pages = code_bundle.get("pages_data", [])
+        total_lines = int(code_bundle.get("total_lines") or 0)
+        total_files = int(code_bundle.get("total_files") or 0)
+        pages = code_bundle.get("pages_data") or []
         has_enough = code_bundle.get("has_enough_code", False)
         
         # 检查代码行数
@@ -471,8 +471,11 @@ class ComplianceChecker:
         results = []
         
         title = manual.get("title", "")
-        page_count = manual.get("page_count", 0)
-        word_count = manual.get("word_count", 0)
+        # None 安全：DB 中 page_count/word_count 可显式为 None（如新生成草稿未统计），
+        # dict.get(key, default) 仅在 key 缺失时用默认值，值为 None 时仍返回 None，
+        # 直接参与 >= 比较会抛 TypeError。统一强制转 int。
+        page_count = int(manual.get("page_count") or 0)
+        word_count = int(manual.get("word_count") or 0)
         has_toc = manual.get("has_toc", False)
         has_chapters = manual.get("has_chapters", False)
         

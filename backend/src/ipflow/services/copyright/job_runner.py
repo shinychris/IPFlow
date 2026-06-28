@@ -219,9 +219,11 @@ class CopyrightJobRunner:
                 raise ValueError("请先生成软件信息")
 
             result = await db.execute(
-                select(CodeBundle).where(CodeBundle.copyright_data_id == copyright_data.id)
+                select(CodeBundle)
+                .where(CodeBundle.copyright_data_id == copyright_data.id)
+                .order_by(CodeBundle.created_at.desc())
             )
-            code_bundle = result.scalar_one_or_none()
+            code_bundle = result.scalars().first()
             if not code_bundle:
                 raise ValueError("请先上传源代码")
 
@@ -236,15 +238,21 @@ class CopyrightJobRunner:
                 project_id=project.id,
                 software_info={
                     "software_full_name": copyright_data.software_full_name,
+                    "software_short_name": copyright_data.software_short_name,
                     "version_number": copyright_data.version_number,
                     "development_language": copyright_data.development_language,
+                    "functional_description": copyright_data.functional_description,
+                    "technical_features": copyright_data.technical_features,
                 },
                 code_bundle={
+                    "total_files": code_bundle.total_files,
                     "total_lines": code_bundle.total_lines,
                     "has_enough_code": code_bundle.has_enough_code,
                     "pages_data": code_bundle.pages_data,
                 },
                 manual={
+                    "title": manual.title if manual else "",
+                    "word_count": manual.word_count if manual else 0,
                     "page_count": manual.page_count if manual else 0,
                     "has_toc": manual.has_toc if manual else False,
                     "has_chapters": manual.has_chapters if manual else False,

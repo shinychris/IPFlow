@@ -1,0 +1,112 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8">
+<title>IPFlow 仿真可用性测试报告</title>
+<style>
+  body { font-family: -apple-system,"PingFang SC",sans-serif; margin:2rem auto; max-width:1000px; color:#1f2937; }
+  h1 { border-bottom:2px solid #2563eb; padding-bottom:.3rem; }
+  h2 { margin-top:2rem; color:#374151; }
+  .meta { color:#6b7280; font-size:.9rem; margin-bottom:1.5rem; }
+  .cards { display:flex; gap:1rem; flex-wrap:wrap; margin-bottom:1.5rem; }
+  .card { background:#f9fafb; border:1px solid #e5e7eb; border-radius:.5rem; padding:1rem 1.5rem; min-width:160px; }
+  .card h3 { margin:0 0 .5rem; font-size:.8rem; color:#6b7280; }
+  .big { font-size:1.8rem; font-weight:700; }
+  .badges { display:flex; flex-wrap:wrap; gap:.4rem; align-items:center; }
+  .badge { color:#fff; font-size:.75rem; padding:.1rem .5rem; border-radius:1rem; }
+  .count { font-weight:600; margin-right:.5rem; }
+  .finding { background:#f9fafb; border:1px solid #e5e7eb; border-left:4px solid #666; border-radius:.4rem; padding:.8rem 1rem; margin:.6rem 0; }
+  .finding h4 { margin:0 0 .4rem; font-size:1rem; }
+  .finding .badge { margin-left:.4rem; }
+  .ftype { color:#6b7280; font-size:.8rem; font-weight:normal; margin-left:.4rem; }
+  .evidence { color:#4b5563; font-size:.85rem; }
+  table { border-collapse:collapse; width:100%; font-size:.88rem; }
+  th,td { border:1px solid #e5e7eb; padding:.4rem .6rem; text-align:left; }
+  th { background:#f3f4f6; }
+  tr.pass { background:#f0fdf4; }
+  tr.fail { background:#fef2f2; }
+  tr.warn { background:#fffbeb; }
+</style></head><body>
+<h1>IPFlow 仿真可用性测试报告</h1>
+<div class="meta">生成于 2026-06-28 01:00:40
+ · 形态: web
+ · 目标: http://localhost:3000</div>
+<div class="cards">
+    <div class="card"><h3>操作步数</h3><div class="big">11</div></div>
+    <div class="card"><h3>发现问题</h3><div class="big" style="color:#dc2626">9</div></div>
+    <div class="card"><h3>失败步骤</h3><div class="big" style="color:#ea580c">0</div></div>
+    <div class="card"><h3>严重程度分布</h3><div class="badges"><span class="badge" style="background:#ea580c">严重</span><span class="count">7</span><span class="badge" style="background:#65a30d">轻微</span><span class="count">1</span><span class="badge" style="background:#2563eb">建议</span><span class="count">1</span></div></div>
+    </div>
+<h2>测试章程</h2><blockquote>新用户从注册到软著/专利/商标三大业务材料生成与导出的完整流程，验证真实可用性与生成结果</blockquote>
+<h2>发现的问题</h2>
+        <div class="finding" style="border-left-color:#ea580c">
+          <h4>#2 软著合规检查崩溃 500（None&gt;=int）
+              <span class="badge" style="background:#ea580c">严重</span>
+              <span class="ftype">功能</span></h4>
+          <p><b>预期:</b> 点击&#x27;执行合规检查&#x27;应返回规则结果</p>
+          <p><b>实际:</b> GET/POST /compliance/projects/{id}[/check] 返回500；_check_manual 第498行 page_count&gt;=15 时 page_count 为 None 抛 TypeError</p>
+          <p class="evidence"><b>证据:</b> 后端traceback: compliance_checker.py:498 TypeError &#x27;&gt;=&#x27; not supported between NoneType and int；生成草稿 word_count/page_count 未统计为 None</p>
+        </div>
+        <div class="finding" style="border-left-color:#ea580c">
+          <h4>#3 代码上传依赖 MinIO（本地/仿真环境不可用）
+              <span class="badge" style="background:#ea580c">严重</span>
+              <span class="ftype">功能</span></h4>
+          <p><b>预期:</b> STORAGE_TYPE=local 时应使用本地文件系统存储</p>
+          <p><b>实际:</b> POST /code-bundles 返回500；storage_service.py 硬编码 Minio，忽略 STORAGE_TYPE=local/STORAGE_BASE_PATH，连接 localhost:9000 失败</p>
+          <p class="evidence"><b>证据:</b> 后端traceback: MaxRetryError localhost:9000 Connection refused</p>
+        </div>
+        <div class="finding" style="border-left-color:#ea580c">
+          <h4>#4 多代码包时合规检查/导出崩溃 MultipleResultsFound
+              <span class="badge" style="background:#ea580c">严重</span>
+              <span class="ftype">功能</span></h4>
+          <p><b>预期:</b> 上传多个代码包后合规检查与导出应取最新包正常工作</p>
+          <p><b>实际:</b> compliance.py:127 与 job_runner.py:224 用 scalar_one_or_none() 查 CodeBundle，存在≥2包时抛 MultipleResultsFound → 500</p>
+          <p class="evidence"><b>证据:</b> 后端traceback: compliance.py:127 MultipleResultsFound；DB确认 code_bundle 2 行</p>
+        </div>
+        <div class="finding" style="border-left-color:#ea580c">
+          <h4>#5 导出任务合规检查参数不完整致永久失败
+              <span class="badge" style="background:#ea580c">严重</span>
+              <span class="ftype">功能</span></h4>
+          <p><b>预期:</b> 导出任务的合规检查应与UI一致</p>
+          <p><b>实际:</b> job_runner.py 给 compliance_checker 传的 manual 字典缺 title/word_count、software_info 缺 functional_description，导致 MANUAL_001 标题检查永远 FAILED，导出永久无法通过</p>
+          <p class="evidence"><b>证据:</b> 对比：compliance API 可通过，job_runner 内部合规总失败；修复后导出 status=succeeded</p>
+        </div>
+        <div class="finding" style="border-left-color:#ea580c">
+          <h4>#6 中文文件名下载 500（latin-1 编码错误）
+              <span class="badge" style="background:#ea580c">严重</span>
+              <span class="ftype">功能</span></h4>
+          <p><b>预期:</b> 下载含中文文件名的导出包应返回 zip</p>
+          <p><b>实际:</b> export_jobs download 用 filename=软著申请...放入 Content-Disposition 触发 UnicodeEncodeError latin-1 → 500</p>
+          <p class="evidence"><b>证据:</b> 后端traceback: export_jobs.py:177 UnicodeEncodeError latin-1; 6处下载端点均受影响</p>
+        </div>
+        <div class="finding" style="border-left-color:#ea580c">
+          <h4>#7 尼斯分类表无种子数据致商标功能不可用
+              <span class="badge" style="background:#ea580c">严重</span>
+              <span class="ftype">功能</span></h4>
+          <p><b>预期:</b> 商标应可查询并选择尼斯分类</p>
+          <p><b>实际:</b> nice_classification 表为空(0行)，/nice-classes 返回空，合规&#x27;尼斯分类&#x27;规则永远失败，商标无法选择分类/导出</p>
+          <p class="evidence"><b>证据:</b> DB确认 nice_classification 0 行；新增 db/nice_seed.py 在启动时填充45类</p>
+        </div>
+        <div class="finding" style="border-left-color:#ea580c">
+          <h4>#9 登录/注册失败无错误反馈（store 闭包读旧值）
+              <span class="badge" style="background:#ea580c">严重</span>
+              <span class="ftype">功能</span></h4>
+          <p><b>预期:</b> 登录密码错误/注册重复邮箱时应显示明确错误</p>
+          <p><b>实际:</b> use-auth.ts mutationFn 中 store.error 是渲染快照旧值，await store.login() 后仍为 null，导致 throw 不触发，登录页无任何错误反馈，用户不知为何登录失败</p>
+          <p class="evidence"><b>证据:</b> text-login-error 修复前不可见、修复后显示&#x27;用户名或密码错误&#x27;；修复用 useAuthStore.getState().error 读最新值</p>
+        </div>
+        <div class="finding" style="border-left-color:#65a30d">
+          <h4>#1 每次加载页面GET /api/v1返回404
+              <span class="badge" style="background:#65a30d">轻微</span>
+              <span class="ftype">噪音</span></h4>
+          <p><b>预期:</b> 不应有空路径探测</p>
+          <p><b>实际:</b> 每个页面加载都出现 GET /api/v1 → 404（控制台报错1条）</p>
+          <p class="evidence"><b>证据:</b> netFails: 404 http://localhost:3000/api/v1；不影响功能</p>
+        </div>
+        <div class="finding" style="border-left-color:#2563eb">
+          <h4>#8 设置保存成功但无明确成功提示
+              <span class="badge" style="background:#2563eb">建议</span>
+              <span class="ftype">交互</span></h4>
+          <p><b>预期:</b> 保存个人信息后应有可见的成功反馈</p>
+          <p><b>实际:</b> PUT /auth/me 返回200且数据已持久化，但页面无明确&#x27;保存成功&#x27;toast（仅文案含&#x27;更新&#x27;）</p>
+          <p class="evidence"><b>证据:</b> auth响应 200；display_name 已更新但未见 toast</p>
+        </div>
+<h2>操作过程回放</h2><table><tr><th>#</th><th>动作</th><th>观察</th><th>判定</th></tr><tr class="pass"><td>1</td><td>游客访问首页</td><td>落地页正常渲染：标题&#x27;一句话生成全套软著申请材料&#x27;、导航(首页/定价/帮助/登录/注册)、三大业务入口、无console错误、无网络失败</td><td>pass</td></tr><tr class="pass"><td>2</td><td>进入注册页并完整填写表单</td><td>注册页含用户名/邮箱/昵称/密码/确认密码5字段，data-testid齐全；首次只填了密码未填确认密码导致未提交(前端校验生效，合理)</td><td>pass</td></tr><tr class="pass"><td>3</td><td>提交注册</td><td>注册成功，自动登录并跳转/dashboard工作台，侧边栏三大业务入口齐全(软著/专利/商标)</td><td>pass</td></tr><tr class="pass"><td>4</td><td>退出后用账号登录</td><td>登录页正常，提交后跳转/dashboard；工作台显示三大业务卡片+最近项目(暂无)</td><td>pass</td></tr><tr class="pass"><td>5</td><td>软著：填写业务描述并点击&#x27;开始生成 AI 草稿&#x27;</td><td>生成任务 succeeded(progress=100)；自动产出软件信息(全称/开发语言Python·TypeScript/运行环境/功能描述/技术特征)与操作说明书(真实HTML：产品概述/功能模块/操作流程)；DB确认 source=ai</td><td>pass</td></tr><tr class="pass"><td>6</td><td>软著：完整生成+合规+导出+下载</td><td>全链路打通：生成succeeded→代码上传(4830行)→合规13规则10通过0失败→导出succeeded→下载200；导出zip有效(504b0304)含6文件(软件信息/代码/说明书/合规/申请表/对照表)</td><td>pass</td></tr><tr class="pass"><td>7</td><td>专利：创建项目→生成权利要求/说明书</td><td>生成 succeeded/draft_ready；产出真实内容：technical_field/background_art/invention_content(JSON)/implementation/abstract + 2条权利要求(独立+从属，&#x27;其特征在于...&#x27;)</td><td>pass</td></tr><tr class="pass"><td>8</td><td>专利：导出+下载</td><td>导出 succeeded→下载200；zip(70575B)含说明书+权利要求书(TXT+DOCX各2份)；中文文件名下载已修复</td><td>pass</td></tr><tr class="pass"><td>9</td><td>商标：创建→生成→尼斯分类推荐→合规→导出下载</td><td>全链路打通：生成succeeded且自动推荐尼斯分类(第35类广告销售/第42类网站服务含商品项目)；合规4规则全通过；导出succeeded→下载200；zip含商标注册申请书(TXT+DOCX)</td><td>pass</td></tr><tr class="pass"><td>10</td><td>配套页面渲染巡检(11页)</td><td>工作台/所有项目/软著/专利/商标/订阅/组织/设置/规范/帮助均正常渲染无崩溃；管理后台对普通用户正确显示&#x27;无访问权限&#x27;；所有项目列表展示已建项目含进度与操作；设置页保存昵称成功(PUT /auth/me 200，display_name持久化)</td><td>pass</td></tr><tr class="pass"><td>11</td><td>边界/异常探索（空注册/超长名/重复邮箱/错误密码/XSS）</td><td>空注册前端422拦截；超长名/特殊字符被拒；修复后错误密码显示&#x27;用户名或密码错误&#x27;、重复邮箱显示错误并留在注册页；XSS负载作为文本渲染未执行</td><td>pass</td></tr></table>
+</body></html>

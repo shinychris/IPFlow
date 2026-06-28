@@ -53,7 +53,8 @@ class Settings(BaseSettings):
     REDIS_URL: RedisDsn = Field(description="Redis 连接 URL")
     
     # 存储配置
-    STORAGE_TYPE: str = Field(default="minio", description="存储类型")
+    STORAGE_TYPE: str = Field(default="minio", description="存储类型：minio（默认，S3 兼容）或 local（本地文件系统，便于无 MinIO 的开发/仿真环境）")
+    STORAGE_BASE_PATH: str = Field(default="/tmp/ipflow-storage", description="本地存储根目录（仅 STORAGE_TYPE=local 时生效）")
     STORAGE_ENDPOINT: str = Field(default="localhost:9000", description="存储端点")
     STORAGE_ACCESS_KEY: str = Field(default="", description="存储访问密钥")
     STORAGE_SECRET_KEY: str = Field(default="", description="存储秘密密钥")

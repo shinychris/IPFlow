@@ -30,8 +30,11 @@ export function useAuth() {
   const loginMutation = useMutation({
     mutationFn: async (data: { username: string; password: string }) => {
       await store.login(data);
-      if (store.error) {
-        throw new Error(store.error);
+      // 注意：store 是渲染快照，await 后其 error 仍是旧值；
+      // 必须用 getState() 读取最新状态，否则登录失败时错误不会抛出。
+      const latestError = useAuthStore.getState().error;
+      if (latestError) {
+        throw new Error(latestError);
       }
     },
     onSuccess: async () => {
@@ -49,8 +52,10 @@ export function useAuth() {
       displayName?: string;
     }) => {
       await store.register(data as any);
-      if (store.error) {
-        throw new Error(store.error);
+      // 同 login：用 getState() 读取注册后的最新错误
+      const latestError = useAuthStore.getState().error;
+      if (latestError) {
+        throw new Error(latestError);
       }
     },
     onSuccess: () => {

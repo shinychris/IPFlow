@@ -15,6 +15,7 @@ from ipflow.db import get_db
 from ipflow.models import Project, CopyrightData, CodeBundle, CopyrightManual
 from ipflow.models.user import User
 from ipflow.api.deps import require_active_user
+from ipflow.core.content_disposition import build_content_disposition
 from ipflow.services.copyright.export_generator import (
     ExportGenerator,
     ExportConfig,
@@ -133,7 +134,7 @@ async def export_project(
         iter([export_result.content]),
         media_type="application/zip",
         headers={
-            "Content-Disposition": f'attachment; filename="{export_result.file_name}"',
+            "Content-Disposition": build_content_disposition(export_result.file_name),
             "Content-Length": str(export_result.file_size),
         },
     )

@@ -29,7 +29,18 @@ async def lifespan(app: FastAPI):
     # 创建数据库表（开发环境）
     if settings.is_development:
         await create_tables()
-    
+        # 初始化尼斯分类基础数据（商标模块开箱可用）
+        try:
+            from ipflow.db import AsyncSessionLocal
+            from ipflow.db.nice_seed import seed_nice_classifications
+
+            async with AsyncSessionLocal() as session:
+                added = await seed_nice_classifications(session)
+                if added:
+                    logger.info(f"已初始化 {added} 个尼斯分类")
+        except Exception as e:  # noqa: BLE001 初始化失败不应阻断启动
+            logger.warning(f"尼斯分类初始化失败（可忽略）：{e}")
+
     yield
     
     # 关闭时

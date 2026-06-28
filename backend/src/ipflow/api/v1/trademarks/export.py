@@ -20,6 +20,7 @@ from ipflow.models import (
 )
 from ipflow.models.user import User
 from ipflow.api.deps import require_active_user
+from ipflow.core.content_disposition import build_content_disposition
 from ipflow.utils.enums import enum_value
 
 router = APIRouter()
@@ -196,7 +197,7 @@ async def export_trademark(
         iter([zip_buffer.getvalue()]),
         media_type="application/zip",
         headers={
-            "Content-Disposition": f'attachment; filename="{filename}"',
+            "Content-Disposition": build_content_disposition(filename),
             "Content-Length": str(zip_buffer.getbuffer().nbytes),
         },
     )

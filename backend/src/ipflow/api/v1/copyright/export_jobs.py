@@ -11,6 +11,7 @@ from sqlalchemy import desc, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ipflow.api.deps import require_active_user
+from ipflow.core.content_disposition import build_content_disposition
 from ipflow.db import get_db
 from ipflow.models import CopyrightGenerationJob, Project, ProjectType
 from ipflow.models.user import User
@@ -177,5 +178,5 @@ async def download_export_job(
     return StreamingResponse(
         iter([file_bytes]),
         media_type="application/zip",
-        headers={"Content-Disposition": f'attachment; filename="{file_name}"'},
+        headers={"Content-Disposition": build_content_disposition(file_name)},
     )

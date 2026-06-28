@@ -118,13 +118,15 @@ async def _check_copyright(
             "target_domain": copyright_data.target_domain,
         }
 
-    # 代码包
+    # 代码包（一个 copyright_data 可对应多个上传，取最新一条做合规评估）
     result = await db.execute(
-        select(CodeBundle).where(CodeBundle.copyright_data_id == copyright_data.id)
+        select(CodeBundle)
+        .where(CodeBundle.copyright_data_id == copyright_data.id)
+        .order_by(CodeBundle.created_at.desc())
         if copyright_data
         else select(CodeBundle).where(False)
     )
-    code_bundle = result.scalar_one_or_none()
+    code_bundle = result.scalars().first()
     code_bundle_info = None
     if code_bundle:
         code_bundle_info = {
@@ -134,15 +136,15 @@ async def _check_copyright(
             "pages_data": code_bundle.pages_data,
         }
 
-    # 说明书
+    # 说明书（可能存在多份，取最新一条做合规评估）
     result = await db.execute(
-        select(CopyrightManual).where(
-            CopyrightManual.copyright_data_id == copyright_data.id
-        )
+        select(CopyrightManual)
+        .where(CopyrightManual.copyright_data_id == copyright_data.id)
+        .order_by(CopyrightManual.created_at.desc())
         if copyright_data
         else select(CopyrightManual).where(False)
     )
-    manual = result.scalar_one_or_none()
+    manual = result.scalars().first()
     manual_info = None
     if manual:
         manual_info = {
