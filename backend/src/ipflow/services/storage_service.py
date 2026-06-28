@@ -75,6 +75,18 @@ class StorageService:
         """
         return hashlib.sha256(data).hexdigest()
 
+    def _safe_local_path(self, storage_path: str) -> Path:
+        """规范化并校验本地存储路径，防止路径穿越.
+
+        最终路径必须位于 ``base_path`` 之下（含等于 base_path）。
+        使用 ``resolve()`` 比较，避免符号链接/相对路径让字符串前缀校验失效。
+        """
+        base = self.base_path.resolve()
+        target = (self.base_path / storage_path).resolve()
+        if target != base and base not in target.parents:
+            raise ValueError("invalid storage_path")
+        return target
+
     def upload_file(
         self,
         file_data: BinaryIO,
@@ -107,7 +119,7 @@ class StorageService:
 
         if self.client is None:
             # 本地文件系统：写入 base_path/storage_path
-            target = self.base_path / storage_path
+            target = self._safe_local_path(storage_path)
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_bytes(content)
         else:
@@ -142,7 +154,7 @@ class StorageService:
             文件内容
         """
         if self.client is None:
-            target = self.base_path / storage_path
+            target = self._safe_local_path(storage_path)
             return target.read_bytes()
         response = self.client.get_object(self.bucket, storage_path)
         try:
@@ -158,7 +170,7 @@ class StorageService:
             storage_path: 存储路径
         """
         if self.client is None:
-            target = self.base_path / storage_path
+            target = self._safe_local_path(storage_path)
             if target.exists():
                 target.unlink()
             return
@@ -180,7 +192,7 @@ class StorageService:
         """
         if self.client is None:
             # 本地后端无签名概念，返回绝对路径（仅开发环境）
-            return str((self.base_path / storage_path).resolve())
+            return str(self._safe_local_path(storage_path))
         return self.client.presigned_get_object(
             self.bucket,
             storage_path,

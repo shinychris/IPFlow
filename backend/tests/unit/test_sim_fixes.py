@@ -99,6 +99,53 @@ class TestLocalStorage:
             svc.download_file(uploaded["storage_path"])
 
 
+    def test_local_backend_rejects_path_traversal(self, tmp_path, monkeypatch) -> None:
+        """STORAGE_TYPE=local 时存储路径穿越攻击应被拒绝（回归核心）.
+
+        覆盖绿色 agent 修复：upload 的 folder 与 download/delete/presign
+        的 storage_path 含 ``..`` 路径穿越片段时，必须抛 ValueError，
+        不得写出 base_path 之外，也不得读取任意系统文件。
+        """
+        from ipflow.services import storage_service as mod
+
+        # 模拟配置
+        class _FakeSettings:
+            STORAGE_TYPE = "local"
+            STORAGE_BASE_PATH = str(tmp_path)
+            STORAGE_BUCKET = "ipflow"
+
+        monkeypatch.setattr(mod, "get_settings", lambda: _FakeSettings())
+        # 重置单例，使其按本地配置重新初始化
+        monkeypatch.setattr(mod, "_storage_service", None)
+
+        import io
+
+        svc = mod.get_storage_service()
+        assert svc.client is None  # local 后端
+
+        # 1. upload_file 的 folder 含路径穿越应被拒绝
+        with pytest.raises(ValueError):
+            svc.upload_file(
+                io.BytesIO(b"malicious"),
+                "evil.zip",
+                content_type="application/zip",
+                folder="../../escape",
+            )
+
+        # 2. download_file 的 storage_path 含路径穿越应被拒绝
+        with pytest.raises(ValueError):
+            svc.download_file("../../etc/passwd")
+
+        # 3. delete_file 的 storage_path 含路径穿越应被拒绝
+        with pytest.raises(ValueError):
+            svc.delete_file("../../etc/passwd")
+
+        # 4. get_presigned_url 的 storage_path 含路径穿越应被拒绝
+        with pytest.raises(ValueError):
+            svc.get_presigned_url("../../etc/passwd")
+
+
+
 # ============================================================================
 # 3. 合规检查 None 安全（word_count/page_count 为 None）
 # ============================================================================

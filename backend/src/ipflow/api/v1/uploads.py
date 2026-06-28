@@ -26,6 +26,9 @@ from ipflow.services.storage_service import get_storage_service, StorageService
 
 router = APIRouter(prefix="/uploads", tags=["文件上传"])
 
+# 合法文件分类白名单（与 Form 参数描述一致），防止通过 folder 拼接造成本地存储路径穿越
+ALLOWED_FILE_CATEGORIES: set[str] = {"code", "proof", "manual", "drawing"}
+
 
 @router.post("", status_code=status.HTTP_201_CREATED)
 async def upload_file(
@@ -41,6 +44,12 @@ async def upload_file(
     
     上传文件到对象存储并记录元数据。
     """
+    # 白名单校验 file_category，防止通过 folder 拼接造成本地存储路径穿越
+    if file_category not in ALLOWED_FILE_CATEGORIES:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"非法的文件分类: {file_category}（合法值: code, proof, manual, drawing）",
+        )
     # 验证项目存在且属于当前用户
     if project_id:
         result = await db.execute(

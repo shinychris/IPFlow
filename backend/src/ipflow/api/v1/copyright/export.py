@@ -61,13 +61,13 @@ async def export_project(
             detail="请先填写软件信息",
         )
     
-    # 获取代码包
+    # 获取代码包（一个 copyright_data 可对应多个上传，取最新一条）
     result = await db.execute(
-        select(CodeBundle).where(
-            CodeBundle.copyright_data_id == copyright_data.id
-        )
+        select(CodeBundle)
+        .where(CodeBundle.copyright_data_id == copyright_data.id)
+        .order_by(CodeBundle.created_at.desc())
     )
-    code_bundle = result.scalar_one_or_none()
+    code_bundle = result.scalars().first()
     
     if not code_bundle:
         raise HTTPException(
@@ -75,13 +75,13 @@ async def export_project(
             detail="请先上传源代码",
         )
     
-    # 获取说明书
+    # 获取说明书（可能存在多份，取最新一条）
     result = await db.execute(
-        select(CopyrightManual).where(
-            CopyrightManual.copyright_data_id == copyright_data.id
-        )
+        select(CopyrightManual)
+        .where(CopyrightManual.copyright_data_id == copyright_data.id)
+        .order_by(CopyrightManual.created_at.desc())
     )
-    manual = result.scalar_one_or_none()
+    manual = result.scalars().first()
     
     # 准备导出配置
     config = ExportConfig(
@@ -175,21 +175,21 @@ async def preview_export(
     code_bundle = None
     if copyright_data:
         result = await db.execute(
-            select(CodeBundle).where(
-                CodeBundle.copyright_data_id == copyright_data.id
-            )
+            select(CodeBundle)
+            .where(CodeBundle.copyright_data_id == copyright_data.id)
+            .order_by(CodeBundle.created_at.desc())
         )
-        code_bundle = result.scalar_one_or_none()
+        code_bundle = result.scalars().first()
     
     # 获取说明书
     manual = None
     if copyright_data:
         result = await db.execute(
-            select(CopyrightManual).where(
-                CopyrightManual.copyright_data_id == copyright_data.id
-            )
+            select(CopyrightManual)
+            .where(CopyrightManual.copyright_data_id == copyright_data.id)
+            .order_by(CopyrightManual.created_at.desc())
         )
-        manual = result.scalar_one_or_none()
+        manual = result.scalars().first()
     
     return {
         "software_info": {
