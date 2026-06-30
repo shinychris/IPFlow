@@ -39,12 +39,19 @@ class ManualCreate(ManualBase):
 
 
 class ManualUpdate(BaseModel):
-    """更新说明书请求."""
-    
+    """更新说明书请求.
+
+    注意：``word_count`` 与 ``page_count`` 即使由客户端提交也会被忽略——
+    服务端始终依据 ``content_html`` 的纯文本**重算**（``word_count = len(去标签文本)``，
+    ``page_count = max(1, word_count // 800)``），以防伪造、保证合规检查一致。
+    详见创建/更新处理器及合规检查规则。保留这两个字段仅为向后兼容。
+    """
+
     template_type: Optional[ManualTemplateType] = None
     title: Optional[str] = Field(None, max_length=100)
     content_html: Optional[str] = None
     content_json: Optional[dict] = None
+    # 以下两个字段由服务端按 content_html 重算，客户端值将被忽略（见类 docstring）。
     word_count: Optional[int] = None
     page_count: Optional[int] = None
     has_toc: Optional[bool] = None

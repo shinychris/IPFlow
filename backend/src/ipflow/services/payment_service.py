@@ -405,6 +405,7 @@ class PaymentServiceFactory:
 
     _wechat_service: Optional[WeChatPayService] = None
     _alipay_service: Optional[AlipayService] = None
+    _stripe_service: Optional["StripeService"] = None
 
     @classmethod
     def get_wechat_service(cls) -> WeChatPayService:
@@ -419,11 +420,29 @@ class PaymentServiceFactory:
         return cls._alipay_service
 
     @classmethod
+    def get_stripe_service(cls) -> "StripeService":
+        """获取 Stripe 服务单例（惰性导入避免硬依赖）."""
+        if cls._stripe_service is None:
+            from ipflow.services.stripe_service import StripeService
+
+            cls._stripe_service = StripeService()
+        return cls._stripe_service
+
+    @classmethod
     def get_service(cls, payment_method: str) -> PaymentService:
-        """根据支付方式获取对应的服务"""
+        """根据支付方式获取对应的服务.
+
+        Args:
+            payment_method: 支付方式（wechat/alipay/stripe）
+
+        Raises:
+            ValueError: 不支持的支付方式
+        """
         if payment_method == "wechat":
             return cls.get_wechat_service()
         elif payment_method == "alipay":
             return cls.get_alipay_service()
+        elif payment_method == "stripe":
+            return cls.get_stripe_service()
         else:
             raise ValueError(f"Unsupported payment method: {payment_method}")

@@ -21,6 +21,9 @@ pnpm-debug.log*
 # Local env files
 .env*.local
 .env
+# 覆盖任意子目录下的 .env（如 backend/.env），防止密钥泄露
+**/.env
+**/.env.local
 
 # Vercel
 .vercel
@@ -57,6 +60,20 @@ env
 .coverage
 htmlcov
 .pytest_cache
+
+# 仿真/本地数据库（sim_run 产生的 SQLite，不入库）
+ipflow_sim.db
+**/ipflow_sim.db
+*.sqlite
+*.sqlite3
+*.db
+
+# 上线前测试的运行时证据（含临时 JWT/会话日志，不入库；报告与产物在 docs/test/prepubtest/ 顶层）
+docs/test/prepubtest/results/
+docs/test/prepubtest/session/
+
+# 数据备份产物（含敏感数据，不入库）
+backups/
 
 # Legacy (removed directories)
 # server/

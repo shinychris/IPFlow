@@ -2,6 +2,7 @@
 
 from datetime import datetime, timedelta
 import hashlib
+import json
 import urllib.parse
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -116,7 +117,8 @@ async def create_payment(
 
     # 调用支付服务创建支付
     try:
-        payment_result = await payment_service.create_payment(
+        # Stripe 需要 success_url / cancel_url；其他方式忽略这两个字段
+        create_kwargs: dict = dict(
             user_id=str(current_user.id),
             plan_id=data.plan_id,
             billing_interval=data.billing_interval.value,
@@ -125,10 +127,23 @@ async def create_payment(
             order_no=order_no,
             client_ip=client_ip,
         )
+        if data.payment_method.value == "stripe":
+            create_kwargs["success_url"] = data.success_url
+            create_kwargs["cancel_url"] = data.cancel_url
 
-        # 更新订单信息
+        payment_result = await payment_service.create_payment(**create_kwargs)
+
+        # 更新订单信息（兼容 wechat qr_code / alipay pay_url / stripe checkout_url）
         payment_order.qr_code = payment_result.get("qr_code")
         payment_order.pay_url = payment_result.get("pay_url")
+        # Stripe Checkout 跳转地址，复用 pay_url 字段存放，便于前端统一处理
+        checkout_url = payment_result.get("checkout_url")
+        if checkout_url:
+            payment_order.pay_url = checkout_url
+            # 记录 Stripe Session ID 到 extra_data 便于对账
+            extra = json.loads(payment_order.extra_data) if payment_order.extra_data else {}
+            extra["stripe_session_id"] = payment_result.get("session_id")
+            payment_order.extra_data = json.dumps(extra, ensure_ascii=False)
         await db.commit()
         await db.refresh(payment_order)
 
@@ -316,3 +331,93 @@ async def alipay_webhook(
     )
 
     return {"success": True}
+
+
+@router.post("/webhook/stripe")
+async def stripe_webhook(
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+):
+    """Stripe Webhook 回调.
+
+    使用 ``STRIPE_WEBHOOK_SECRET`` 校验签名，校验通过后根据事件类型：
+    - ``checkout.session.completed``：标记订单 ``COMPLETED``，激活订阅
+    - ``checkout.session.expired``：标记订单 ``FAILED``
+    - 其余订阅事件（``invoice.*`` / ``customer.subscription.*``）转交订阅服务处理
+
+    幂等：以 Stripe Event ID 去重，重复投递直接跳过。
+    验签失败一律返回 400（不泄露内部状态）。
+    """
+    from ipflow.services.stripe_service import get_stripe_service
+    from ipflow.services.subscriptions import service as subs_service
+
+    raw_body = await request.body()
+    signature = request.headers.get("Stripe-Signature", "")
+
+    # 验签（未配置 STRIPE_WEBHOOK_SECRET 时 verify_webhook 返回 None）
+    event = get_stripe_service().verify_webhook(payload=raw_body, signature=signature)
+    if event is None:
+        raise HTTPException(status_code=400, detail="Invalid Stripe signature")
+
+    payload_str = raw_body.decode("utf-8", errors="replace")
+    event_id = event.get("id") or _build_event_id("stripe", "unknown", "unknown", payload_str)
+
+    # 幂等
+    if await _is_duplicate_event(db, event_id):
+        return {"received": True, "message": "Duplicate ignored"}
+
+    info = get_stripe_service().extract_event_info(event)
+    event_type = info.get("event_type")
+    order_no = info.get("order_no")
+
+    # 尝试回填本地订单（checkout.session.* 事件携带 client_reference_id=order_no）
+    payment_order = None
+    if order_no:
+        result = await db.execute(
+            select(PaymentOrder).where(PaymentOrder.order_no == order_no)
+        )
+        payment_order = result.scalar_one_or_none()
+
+    if event_type == "checkout.session.completed":
+        if payment_order:
+            payment_order.status = PaymentStatus.COMPLETED
+            payment_order.paid_at = datetime.now()
+            payment_order.transaction_id = info.get("stripe_session_id")
+            payment_order.updated_at = datetime.now()
+            await db.commit()
+    elif event_type == "checkout.session.expired":
+        if payment_order:
+            payment_order.status = PaymentStatus.FAILED
+            payment_order.updated_at = datetime.now()
+            await db.commit()
+
+    # 订阅相关事件转交订阅服务（含幂等、状态映射）
+    if event_type and (
+        event_type.startswith("invoice.")
+        or event_type.startswith("customer.subscription.")
+    ):
+        try:
+            await subs_service.handle_webhook(
+                db=db,
+                provider="stripe",
+                payload=json.dumps(event, ensure_ascii=False),
+                signature=signature,
+            )
+        except Exception as exc:  # noqa: BLE001 - 订阅处理失败不应影响订单状态已更新
+            import logging
+            logging.getLogger(__name__).warning(
+                "Stripe webhook 订阅事件处理失败：%s", exc
+            )
+
+    # 记录 Webhook 日志（审计）
+    await _record_webhook_event(
+        db,
+        event_id=event_id,
+        provider="stripe",
+        payment_id=payment_order.id if payment_order else None,
+        order_no=order_no,
+        payload=payload_str,
+        success=True,
+    )
+
+    return {"received": True}

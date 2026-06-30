@@ -12,12 +12,18 @@ from typing import Annotated, Any, Optional
 from uuid import uuid4
 import logging
 
-from fastapi import APIRouter, Depends, HTTPException, Header, status
+from fastapi import APIRouter, Depends, HTTPException, Header, Request, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel, EmailStr, Field, SecretStr, field_validator
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ipflow.core.exceptions import AuthenticationException, ValidationException, NotFoundException
+from ipflow.core.exceptions import (
+    AuthenticationException,
+    ConflictException,
+    NotFoundException,
+    ValidationException,
+)
+from ipflow.core.rate_limit import limiter
 from ipflow.core.security import (
     create_access_token,
     create_refresh_token,
@@ -298,18 +304,18 @@ async def register(
     Raises:
         ValidationException: 邮箱或用户名已存在
     """
-    # 检查邮箱是否已存在
+    # 检查邮箱是否已存在（与现有资源冲突 → 409 Conflict，而非 422 校验错误）
     existing_email = await get_user_by_email(db, request.email)
     if existing_email:
-        raise ValidationException(
+        raise ConflictException(
             message="该邮箱已被注册",
             field_errors=[{"field": "email", "message": "邮箱已被使用"}],
         )
-    
+
     # 检查用户名是否已存在
     existing_username = await get_user_by_username(db, request.username)
     if existing_username:
-        raise ValidationException(
+        raise ConflictException(
             message="该用户名已被使用",
             field_errors=[{"field": "username", "message": "用户名已被占用"}],
         )
@@ -346,7 +352,18 @@ async def register(
 
     # 生成访问令牌
     access_token = create_access_token(str(user.id))
-    
+
+    # 发送邮箱验证邮件（失败不阻断注册主流程）
+    try:
+        from ipflow.core.action_token import create_action_token, PURPOSE_EMAIL_VERIFICATION
+        from ipflow.services.email_service import send_email_verification
+
+        verify_token = create_action_token(str(user.id), PURPOSE_EMAIL_VERIFICATION)
+        verify_url = _build_frontend_url(f"auth/verify-email?token={verify_token}")
+        await send_email_verification(user.email, user.username, verify_url)
+    except Exception as e:  # noqa: BLE001
+        logger.warning("发送注册验证邮件失败（to=%s）：%s", user.email, e)
+
     return SuccessResponse(
         code="SUCCESS",
         message="注册成功",
@@ -585,7 +602,7 @@ async def update_me(
         更新后的用户信息
 
     Raises:
-        ValidationException: 邮箱已被其他用户占用
+        ConflictException: 邮箱已被其他用户占用
     """
     if request.display_name is not None:
         current_user.display_name = request.display_name.strip() or None
@@ -595,7 +612,7 @@ async def update_me(
         if new_email != current_user.email:
             existing = await get_user_by_email(db, new_email)
             if existing and str(existing.id) != str(current_user.id):
-                raise ValidationException(
+                raise ConflictException(
                     message="该邮箱已被注册",
                     field_errors=[{"field": "email", "message": "邮箱已被使用"}],
                 )
@@ -619,3 +636,184 @@ async def update_me(
             last_login_at=current_user.last_login_at,
         ),
     )
+
+
+# ==================== 邮箱验证与密码重置 ====================
+# 这两组端点基于带用途（purpose）的短时效 JWT 令牌（见 core/action_token.py），
+# 通过邮件链接回传，解决「注册即用无法防机器号」与「忘记密码无法自助恢复」两大 P1 缺口。
+
+
+class ResendVerificationRequest(BaseModel):
+    """重新发送验证邮件请求."""
+    model_config = {"populate_by_name": True}
+
+    email: EmailStr = Field(description="注册邮箱")
+
+
+class VerifyEmailRequest(BaseModel):
+    """邮箱验证请求（前端从邮件链接提取 token 后调用）."""
+    model_config = {"populate_by_name": True}
+
+    token: str = Field(description="邮箱验证令牌")
+
+
+class ForgotPasswordRequest(BaseModel):
+    """忘记密码请求."""
+    model_config = {"populate_by_name": True}
+
+    email: EmailStr = Field(description="注册邮箱")
+
+
+class ResetPasswordRequest(BaseModel):
+    """重置密码请求."""
+    model_config = {"populate_by_name": True}
+
+    token: str = Field(description="密码重置令牌")
+    new_password: SecretStr = Field(description="新密码（需符合强度要求）")
+
+    @field_validator("new_password")
+    @classmethod
+    def validate_new_password_strength(cls, v: SecretStr) -> SecretStr:
+        """复用注册时的密码强度校验."""
+        pwd = v.get_secret_value()
+        if len(pwd) < 8:
+            raise ValueError("密码长度至少 8 位")
+        if not any(c.isalpha() for c in pwd) or not any(c.isdigit() for c in pwd):
+            raise ValueError("密码必须包含字母和数字")
+        return v
+
+
+def _build_frontend_url(path_with_query: str) -> str:
+    """拼接前端验证/重置回跳地址."""
+    from ipflow.config import get_settings
+    base = get_settings().APP_BASE_URL.rstrip("/")
+    return f"{base}/{path_with_query.lstrip('/')}"
+
+
+@router.post(
+    "/auth/verify-email/resend",
+    response_model=SuccessResponse,
+    status_code=status.HTTP_200_OK,
+    summary="重新发送邮箱验证邮件",
+    description="向未验证邮箱的用户发送验证邮件；已验证或不存在均返回成功（防枚举）。",
+)
+@limiter.limit("3/hour")
+async def resend_verification_email(
+    request: Request,
+    payload: ResendVerificationRequest,
+    db: AsyncSession = Depends(get_db),
+) -> SuccessResponse:
+    """重新发送邮箱验证邮件.
+
+    限流：3 次/小时/IP。
+    无论邮箱是否存在或已验证，均返回成功，防止邮箱枚举攻击。
+    """
+    user = await get_user_by_email(db, payload.email)
+    # 仅当用户存在且未验证时才真正发送
+    if user and not user.is_verified:
+        from ipflow.core.action_token import create_action_token, PURPOSE_EMAIL_VERIFICATION
+        from ipflow.services.email_service import send_email_verification
+
+        token = create_action_token(str(user.id), PURPOSE_EMAIL_VERIFICATION)
+        verify_url = _build_frontend_url(f"auth/verify-email?token={token}")
+        try:
+            await send_email_verification(user.email, user.username, verify_url)
+        except Exception as e:  # noqa: BLE001 邮件失败不暴露给客户端
+            logger.warning("发送验证邮件失败（to=%s）：%s", user.email, e)
+
+    return SuccessResponse(code="SUCCESS", message="若该邮箱已注册且未验证，验证邮件已发送")
+
+
+@router.post(
+    "/auth/verify-email",
+    response_model=SuccessResponse,
+    status_code=status.HTTP_200_OK,
+    summary="验证邮箱",
+    description="使用邮件中的令牌完成邮箱验证。",
+)
+async def verify_email(
+    payload: VerifyEmailRequest,
+    db: AsyncSession = Depends(get_db),
+) -> SuccessResponse:
+    """验证邮箱令牌."""
+    from uuid import UUID
+    from ipflow.core.action_token import verify_action_token, PURPOSE_EMAIL_VERIFICATION
+
+    result = verify_action_token(payload.token, PURPOSE_EMAIL_VERIFICATION)
+    if not result.is_valid:
+        raise ValidationException(message=result.error or "验证失败")
+
+    user = await get_user_by_id(db, UUID(result.user_id))
+    if not user:
+        raise NotFoundException(message="用户不存在")
+
+    if user.is_verified:
+        return SuccessResponse(code="SUCCESS", message="邮箱已验证，无需重复操作")
+
+    user.is_verified = True
+    await db.commit()
+
+    return SuccessResponse(code="SUCCESS", message="邮箱验证成功")
+
+
+@router.post(
+    "/auth/forgot-password",
+    response_model=SuccessResponse,
+    status_code=status.HTTP_200_OK,
+    summary="忘记密码",
+    description="向注册邮箱发送密码重置链接；邮箱不存在时仍返回成功（防枚举）。",
+)
+@limiter.limit("3/hour")
+async def forgot_password(
+    request: Request,
+    payload: ForgotPasswordRequest,
+    db: AsyncSession = Depends(get_db),
+) -> SuccessResponse:
+    """请求密码重置邮件.
+
+    限流：3 次/小时/IP。
+    无论邮箱是否存在，均返回成功，防止邮箱枚举攻击。
+    """
+    user = await get_user_by_email(db, payload.email)
+    if user:
+        from ipflow.core.action_token import create_action_token, PURPOSE_PASSWORD_RESET
+        from ipflow.services.email_service import send_password_reset
+
+        token = create_action_token(str(user.id), PURPOSE_PASSWORD_RESET)
+        reset_url = _build_frontend_url(f"auth/reset-password?token={token}")
+        try:
+            await send_password_reset(user.email, user.username, reset_url)
+        except Exception as e:  # noqa: BLE001 邮件失败不暴露给客户端
+            logger.warning("发送重置密码邮件失败（to=%s）：%s", user.email, e)
+
+    return SuccessResponse(code="SUCCESS", message="若该邮箱已注册，重置链接已发送")
+
+
+@router.post(
+    "/auth/reset-password",
+    response_model=SuccessResponse,
+    status_code=status.HTTP_200_OK,
+    summary="重置密码",
+    description="使用重置令牌设置新密码。",
+)
+async def reset_password(
+    payload: ResetPasswordRequest,
+    db: AsyncSession = Depends(get_db),
+) -> SuccessResponse:
+    """使用令牌重置密码."""
+    from uuid import UUID
+    from ipflow.core.action_token import verify_action_token, PURPOSE_PASSWORD_RESET
+
+    result = verify_action_token(payload.token, PURPOSE_PASSWORD_RESET)
+    if not result.is_valid:
+        raise ValidationException(message=result.error or "重置失败")
+
+    user = await get_user_by_id(db, UUID(result.user_id))
+    if not user:
+        raise NotFoundException(message="用户不存在")
+
+    user.hashed_password = get_password_hash(payload.new_password.get_secret_value())
+    await db.commit()
+
+    logger.info("用户 %s 已通过重置令牌修改密码", user.id)
+    return SuccessResponse(code="SUCCESS", message="密码重置成功，请使用新密码登录")

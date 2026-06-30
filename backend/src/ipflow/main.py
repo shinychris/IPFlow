@@ -10,12 +10,18 @@ from ipflow.core.exceptions import setup_exception_handlers
 from ipflow.core.logging import setup_logging
 from ipflow.core.middleware import RequestLoggingMiddleware
 from ipflow.core.monitoring import health_checker
+from ipflow.core.tenant import TenantMiddleware
 from ipflow.db.session import get_db
 
 settings = get_settings()
 
 # 配置日志
 setup_logging()
+
+# 初始化错误监控（Sentry 可选，未配置 DSN 时降级到日志/Webhook 告警）
+from ipflow.core.alerting import init_monitoring  # noqa: E402
+
+init_monitoring()
 
 
 @asynccontextmanager
@@ -70,14 +76,42 @@ app = FastAPI(
 # 配置异常处理器
 setup_exception_handlers(app)
 
+# 速率限制（slowapi）：注册限流器与异常处理
+# 端点通过 @limiter.limit("5/minute") 装饰器声明限流策略；
+# 计数存储优先用 Redis（多实例），未配置时用内存。
+from ipflow.core.rate_limit import limiter  # noqa: E402
+from slowapi import _rate_limit_exceeded_handler  # noqa: E402
+from slowapi.errors import RateLimitExceeded  # noqa: E402
+from slowapi.middleware import SlowAPIMiddleware  # noqa: E402
+
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+app.add_middleware(SlowAPIMiddleware)
+
 # 请求日志中间件
 app.add_middleware(RequestLoggingMiddleware)
 
+# 租户上下文中间件
+# 仅从 x-tenant-id 请求头注入请求级租户上下文（不阻断请求）。
+# 业务查询仍以 user_id / organization_id 显式隔离为准；本中间件提供
+# ContextVar 供需要按租户过滤的服务消费，并在请求结束时清理上下文。
+app.add_middleware(TenantMiddleware)
+
 # CORS 中间件
+# 生产环境必须通过 CORS_ALLOWED_ORIGINS 配置明确的前端域名白名单。
+# 浏览器规范：allow_credentials=True 时禁止 allow_origins=["*"] 或空数组，
+# 故此处以 cors_allowed_origins_list 解析，避免矛盾配置导致前端被拦截。
+_cors_origins = settings.cors_allowed_origins_list
+# 开发模式且未显式配置白名单时，放宽到 * 但关闭 credentials（符合浏览器规范）
+if settings.DEBUG and not settings.CORS_ALLOWED_ORIGINS.strip():
+    _cors_origins = ["*"]
+    _cors_credentials = False
+else:
+    _cors_credentials = bool(_cors_origins)  # 有白名单才允许携带凭证
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"] if settings.DEBUG else [],
-    allow_credentials=True,
+    allow_origins=_cors_origins,
+    allow_credentials=_cors_credentials,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -90,10 +124,10 @@ app.include_router(v1_router, prefix="/api/v1")
 @app.get("/health")
 async def health_check():
     """健康检查端点."""
-    # 获取数据库会话
-    from ipflow.db import async_session_maker
-    
-    async with async_session_maker() as db:
+    # 获取数据库会话（db.session 通过 __getattr__ 暴露 AsyncSessionLocal）
+    from ipflow.db import AsyncSessionLocal
+
+    async with AsyncSessionLocal() as db:
         health_status = await health_checker.check_all(db)
     
     return {

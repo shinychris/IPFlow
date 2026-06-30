@@ -7,7 +7,7 @@ import api from "./client";
 export interface CreatePaymentRequest {
   planId: string;
   billingInterval: "monthly" | "yearly";
-  paymentMethod: "wechat" | "alipay";
+  paymentMethod: "wechat" | "alipay" | "stripe";
   successUrl?: string;
   cancelUrl?: string;
 }
@@ -18,9 +18,9 @@ export interface PaymentOrder {
   amount: number;
   currency: string;
   status: "pending" | "processing" | "completed" | "failed" | "cancelled";
-  paymentMethod: "wechat" | "alipay";
+  paymentMethod: "wechat" | "alipay" | "stripe";
   qrCode?: string; // 微信支付二维码
-  payUrl?: string; // 支付宝跳转链接
+  payUrl?: string; // 支付宝跳转链接 / Stripe Checkout 跳转地址
   expiresAt: string;
   plan: {
     id: string;

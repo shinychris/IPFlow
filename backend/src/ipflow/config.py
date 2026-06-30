@@ -31,6 +31,13 @@ class Settings(BaseSettings):
     APP_NAME: str = Field(default="IPFlow", description="应用名称")
     DEBUG: bool = Field(default=False, description="调试模式")
     ENVIRONMENT: str = Field(default="development", description="运行环境")
+    # CORS 允许的来源白名单，逗号分隔；
+    # 生产环境必须配置明确的前端域名（如 https://app.ipflow.com），
+    # 因为 allow_credentials=True 时浏览器规范禁止 allow_origins=["*"] 或空。
+    CORS_ALLOWED_ORIGINS: str = Field(
+        default="",
+        description="CORS 允许来源白名单，逗号分隔；空时开发环境回退到 localhost:3000",
+    )
     
     # 安全配置
     SECRET_KEY: str = Field(description="JWT 密钥")
@@ -190,11 +197,54 @@ class Settings(BaseSettings):
         description="源码拉取临时根目录",
     )
     GIT_CLONE_DEPTH: int = Field(default=1, description="git clone --depth")
+
+    # Stripe 支付配置（真实收款）
+    STRIPE_SECRET_KEY: Optional[str] = Field(
+        default=None,
+        description="Stripe Secret Key（sk_live_ 或 sk_test_）；未配置时 stripe 支付方式不可用",
+    )
+    STRIPE_WEBHOOK_SECRET: Optional[str] = Field(
+        default=None,
+        description="Stripe Webhook Signing Secret（whsec_...）；未配置时 Webhook 验签一律拒绝",
+    )
+    STRIPE_PRICE_MAP: str = Field(
+        default="",
+        description=(
+            "Stripe Price ID 映射，格式 plan_id:interval=price_xxx，逗号分隔；"
+            "例：starter:monthly=price_abc,starter:yearly=price_def"
+        ),
+    )
+    APP_BASE_URL: str = Field(
+        default="http://localhost:3000",
+        description="应用基础 URL，用于拼接 Stripe Checkout 默认回跳地址",
+    )
+    # 文件上传安全
+    MAX_UPLOAD_SIZE: int = Field(
+        default=50 * 1024 * 1024,
+        description="单文件上传最大字节数（默认 50MB）",
+    )
     
     @property
     def is_development(self) -> bool:
         """是否为开发环境."""
         return self.ENVIRONMENT == "development"
+
+    @property
+    def cors_allowed_origins_list(self) -> list[str]:
+        """解析 CORS_ALLOWED_ORIGINS 为列表.
+
+        生产环境必须显式配置白名单；开发环境留空时回退到 localhost:3000，
+        避免 ``allow_origins=[]`` + ``allow_credentials=True`` 的无效组合。
+        """
+        origins = [
+            o.strip().rstrip("/")
+            for o in self.CORS_ALLOWED_ORIGINS.split(",")
+            if o.strip()
+        ]
+        if origins:
+            return origins
+        # 兜底：开发环境允许本地前端
+        return ["http://localhost:3000", "http://127.0.0.1:3000"] if self.is_development else []
     
     @property
     def is_production(self) -> bool:

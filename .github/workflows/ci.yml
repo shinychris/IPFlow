@@ -1,0 +1,76 @@
+# IPFlow CI/CD
+# 后端：lint(ruff) → type check(mypy) → test(pytest)
+# 前端：type check(tsc) → lint(eslint) → build(next build)
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  backend:
+    name: Backend (lint + type + test)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          version: "latest"
+
+      - name: Set up Python
+        run: uv python install 3.12
+
+      - name: Install dependencies
+        run: uv sync --extra dev
+
+      - name: Lint (ruff)
+        run: uv run ruff check src/ tests/
+
+      - name: Format check (ruff)
+        run: uv run ruff format --check src/ tests/
+
+      - name: Type check (mypy)
+        run: uv run mypy src/ || true  # mypy 暂不阻断，待类型覆盖率提升后改为硬门禁
+
+      - name: Test (pytest)
+        run: uv run pytest tests/ -v --cov=src --cov-report=term-missing
+
+  frontend:
+    name: Frontend (type + lint + build)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Type check (tsc)
+        run: pnpm exec tsc --noEmit
+
+      - name: Lint (eslint)
+        run: pnpm lint || true  # eslint 暂不阻断
+
+      - name: Build
+        run: pnpm build
+        env:
+          NEXT_PUBLIC_API_URL: http://localhost:8000/api/v1

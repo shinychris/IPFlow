@@ -1,5 +1,6 @@
 "use client";
 
+import React from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
@@ -20,6 +21,7 @@ import {
   type Invoice,
   type UsageStats,
 } from "@/api/subscriptions";
+import { createPayment } from "@/api/payments";
 
 const planInterval = (sub?: Subscription | null) =>
   (sub?.interval as "monthly" | "yearly" | undefined) ?? "monthly";
@@ -93,6 +95,25 @@ export default function SubscriptionsPage() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
+  // Stripe Checkout 支付成功 / 取消回跳提示
+  React.useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("paid") === "1") {
+      toast({ title: "支付成功", description: "订阅已激活，刷新可见最新计划" });
+      queryClient.invalidateQueries({ queryKey: ["/subscriptions/current"] });
+      queryClient.invalidateQueries({ queryKey: ["/subscriptions/usage"] });
+      window.history.replaceState({}, "", window.location.pathname);
+    } else if (params.get("canceled") === "1") {
+      toast({
+        title: "支付已取消",
+        description: "您尚未被扣款，可随时重新订阅",
+        variant: "destructive",
+      });
+      window.history.replaceState({}, "", window.location.pathname);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const { data: plans = [], isLoading: plansLoading } = useQuery({
     queryKey: ["/subscriptions/plans"],
     queryFn: () => subscriptionsApi.listPlans(),
@@ -118,18 +139,33 @@ export default function SubscriptionsPage() {
   });
 
   const subscribeMutation = useMutation({
-    mutationFn: (planId: string) =>
-      subscriptionsApi.create({ plan_id: planId, interval: planInterval(current) }),
+    mutationFn: async (planId: string) => {
+      // 商业化路径：通过 Stripe Checkout 完成真实收款。
+      // 创建支付订单 → 跳转到 Stripe 托管支付页 → 支付成功后 Webhook 激活订阅。
+      const interval = planInterval(current);
+      const order = await createPayment({
+        planId,
+        billingInterval: interval,
+        paymentMethod: "stripe",
+      });
+      // 后端把 Stripe Checkout URL 写入 payUrl 字段
+      if (order.payUrl) {
+        window.location.href = order.payUrl;
+      } else {
+        throw new Error("未返回 Stripe 支付链接，请检查后端 STRIPE_* 配置");
+      }
+      return order;
+    },
     onSuccess: () => {
-      toast({ title: "订阅成功", description: "您的订阅计划已更新" });
+      // 页面即将跳转到 Stripe，无需 toast；支付成功回跳后由 ?paid=1 提示
       queryClient.invalidateQueries({ queryKey: ["/subscriptions/current"] });
       queryClient.invalidateQueries({ queryKey: ["/subscriptions/usage"] });
     },
     onError: (error: any) => {
       toast({
-        title: "订阅失败",
+        title: "发起支付失败",
         description:
-          error?.response?.data?.detail || "请稍后重试",
+          error?.response?.data?.detail || error?.message || "请稍后重试",
         variant: "destructive",
       });
     },

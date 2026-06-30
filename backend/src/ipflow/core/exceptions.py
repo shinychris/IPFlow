@@ -143,6 +143,46 @@ class ValidationException(BusinessException):
         )
 
 
+class ConflictException(BusinessException):
+    """资源冲突异常.
+
+    当请求与已存在的资源冲突时抛出（如邮箱/用户名已注册、唯一约束冲突等）。
+    区别于 ``ValidationException``（422，请求数据本身不合法），本异常表示数据合法但
+    与现有资源冲突，语义对应 HTTP 409 Conflict。
+
+    Examples:
+        >>> raise ConflictException(message="该邮箱已被注册")
+        >>> raise ConflictException(
+        ...     message="该邮箱已被注册",
+        ...     field_errors=[{"field": "email", "message": "邮箱已被使用"}]
+        ... )
+    """
+
+    def __init__(
+        self,
+        message: str = "资源已存在",
+        field_errors: list[dict[str, Any]] | None = None,
+        details: dict[str, Any] | None = None,
+    ) -> None:
+        """初始化冲突异常.
+
+        Args:
+            message: 错误消息
+            field_errors: 字段级别的错误列表
+            details: 额外的错误详情
+        """
+        error_details: dict[str, Any] = details or {}
+        if field_errors:
+            error_details["errors"] = field_errors
+
+        super().__init__(
+            code="CONFLICT",
+            message=message,
+            status_code=status.HTTP_409_CONFLICT,
+            details=error_details or None,
+        )
+
+
 class AuthenticationException(BusinessException):
     """认证异常.
 
@@ -306,6 +346,9 @@ async def generic_exception_handler(
 ) -> JSONResponse:
     """处理通用异常（捕获未处理的异常）.
 
+    所有未处理的 500 错误都会上报到监控（Sentry）+ 告警 Webhook，
+    避免线上错误静默丢失。
+
     Args:
         request: FastAPI 请求对象
         exc: 异常实例
@@ -313,6 +356,29 @@ async def generic_exception_handler(
     Returns:
         JSON 响应
     """
+    # 上报到监控（Sentry 可选）+ 推送告警
+    import logging
+    from ipflow.core.alerting import capture_exception, send_alert
+
+    logger = logging.getLogger(__name__)
+    logger.exception("未处理异常：%s", exc)
+
+    capture_exception(
+        exc,
+        path=str(request.url.path),
+        method=request.method,
+    )
+
+    # 异步推送告警（不阻塞响应；错误收集后由事件循环调度）
+    import asyncio
+    asyncio.create_task(
+        send_alert(
+            title="服务端未处理异常",
+            detail=f"{request.method} {request.url.path}\n{type(exc).__name__}: {exc}",
+            level="error",
+        )
+    )
+
     # 生产环境不暴露详细的异常信息
     return JSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

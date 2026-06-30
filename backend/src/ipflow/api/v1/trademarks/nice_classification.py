@@ -19,6 +19,12 @@ from ipflow.models import (
 from ipflow.models.user import User
 from ipflow.api.deps import require_active_user
 
+# 全局路由器（不依赖 project_id）：用于在创建商标项目之前浏览尼斯分类。
+# 注意：必须在 trademarks/__init__.py 中以无 project 前缀的方式挂载，
+# 否则 /nice-classes 全局端点会被错误地要求带 project_id（参见上线前测试缺陷 #5）。
+global_router = APIRouter()
+
+# 项目级路由器（依赖 project_id）：管理某个商标项目已选择的尼斯分类。
 router = APIRouter()
 
 
@@ -59,7 +65,7 @@ class NiceClassInfo(BaseModel):
 # =============================================================================
 
 
-@router.get("/nice-classes", response_model=dict)
+@global_router.get("/nice-classes", response_model=dict)
 async def list_nice_classes(
     current_user: User = Depends(require_active_user),
     db: AsyncSession = Depends(get_db),
@@ -115,7 +121,7 @@ async def list_nice_classes(
     }
 
 
-@router.get("/nice-classes/by-id/{class_id}", response_model=dict)
+@global_router.get("/nice-classes/by-id/{class_id}", response_model=dict)
 async def get_nice_class(
     class_id: UUID,
     current_user: User = Depends(require_active_user),

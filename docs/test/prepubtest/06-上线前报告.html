@@ -1,0 +1,94 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8">
+<title>IPFlow 上线前模拟用户测试报告</title>
+<style>
+  body { font-family: -apple-system,"PingFang SC",sans-serif; margin:2rem auto; max-width:1000px; color:#1f2937; }
+  h1 { border-bottom:2px solid #2563eb; padding-bottom:.3rem; }
+  h2 { margin-top:2rem; color:#374151; }
+  .meta { color:#6b7280; font-size:.9rem; margin-bottom:1.5rem; }
+  .cards { display:flex; gap:1rem; flex-wrap:wrap; margin-bottom:1.5rem; }
+  .card { background:#f9fafb; border:1px solid #e5e7eb; border-radius:.5rem; padding:1rem 1.5rem; min-width:160px; }
+  .card h3 { margin:0 0 .5rem; font-size:.8rem; color:#6b7280; }
+  .big { font-size:1.8rem; font-weight:700; }
+  .badges { display:flex; flex-wrap:wrap; gap:.4rem; align-items:center; }
+  .badge { color:#fff; font-size:.75rem; padding:.1rem .5rem; border-radius:1rem; }
+  .count { font-weight:600; margin-right:.5rem; }
+  .finding { background:#f9fafb; border:1px solid #e5e7eb; border-left:4px solid #666; border-radius:.4rem; padding:.8rem 1rem; margin:.6rem 0; }
+  .finding h4 { margin:0 0 .4rem; font-size:1rem; }
+  .finding .badge { margin-left:.4rem; }
+  .ftype { color:#6b7280; font-size:.8rem; font-weight:normal; margin-left:.4rem; }
+  .evidence { color:#4b5563; font-size:.85rem; }
+  table { border-collapse:collapse; width:100%; font-size:.88rem; }
+  th,td { border:1px solid #e5e7eb; padding:.4rem .6rem; text-align:left; }
+  th { background:#f3f4f6; }
+  tr.pass { background:#f0fdf4; }
+  tr.fail { background:#fef2f2; }
+  tr.warn { background:#fffbeb; }
+</style></head><body>
+<h1>IPFlow 上线前模拟用户测试报告</h1>
+<div class="meta">生成于 2026-06-30 12:08:20
+ · 形态: web
+ · 目标: http://127.0.0.1:8000 (后端 API 直测, sim_run SQLite 模式)
+ · 上线把关: yes</div>
+<div class="cards">
+    <div class="card"><h3>用户故事</h3><div class="big">6</div></div>
+    <div class="card"><h3>测试用例</h3><div class="big">36/40</div></div>
+    <div class="card"><h3>操作步数</h3><div class="big">27</div></div>
+    <div class="card"><h3>数据校验</h3><div class="big" style="color:#16a34a">11/11</div></div>
+    <div class="card"><h3>发现问题</h3><div class="big" style="color:#dc2626">6</div></div>
+    <div class="card"><h3>严重程度分布</h3><div class="badges"><span class="badge" style="background:#ea580c">严重</span><span class="count">3</span><span class="badge" style="background:#65a30d">轻微</span><span class="count">2</span><span class="badge" style="background:#2563eb">建议</span><span class="count">1</span></div></div>
+    </div>
+<h2>测试章程</h2><blockquote>上线前完整功能测试：注册登录+软著/专利/商标三业务全链路，必须看到真实生成的导出结果件，并做数据校验</blockquote>
+<p><b>测试维度:</b> 功能,数据完整性,数据准确性,数据一致性,计算正确,异常恢复</p>
+<h2>用户故事与测试用例</h2><table><tr><th>故事</th><th>角色</th><th>目标</th><th>关联用例</th><th>结果</th></tr><tr><td>US-1 访客注册并登录系统</td><td>未注册访客</td><td>注册账号并登录系统</td><td>TC-1, TC-2, TC-3, TC-4, TC-5, TC-6, TC-7, TC-8</td><td>8/8 通过</td></tr><tr><td>US-2 个人开发者完成软著材料并导出</td><td>独立开发者</td><td>准备软著材料并导出整套包</td><td>TC-9, TC-10, TC-11, TC-12, TC-13, TC-14, TC-15, TC-16, TC-17, TC-18, TC-19, TC-20</td><td>11/12 通过</td></tr><tr><td>US-3 发明人完成专利材料并导出</td><td>发明人</td><td>撰写说明书与权利要求并导出</td><td>TC-21, TC-22, TC-23, TC-24, TC-25, TC-26, TC-27, TC-28</td><td>7/8 通过</td></tr><tr><td>US-4 品牌方完成商标材料并导出</td><td>品牌负责人</td><td>选择类别与尼斯分类并导出申请书</td><td>TC-29, TC-30, TC-31, TC-32, TC-33, TC-34, TC-35</td><td>6/7 通过</td></tr><tr><td>US-5 外部依赖缺失时优雅降级</td><td>运维把关者</td><td>无Redis/MinIO/SMTP不崩主流程</td><td>TC-36, TC-37, TC-38</td><td>2/3 通过</td></tr><tr><td>US-6 用户管理多个并行项目</td><td>多类型用户</td><td>同账号下软著/专利/商标互不干扰</td><td>TC-39, TC-40</td><td>2/2 通过</td></tr></table>
+<h2>发现的问题</h2>
+        <div class="finding" style="border-left-color:#ea580c">
+          <h4>#3 【严重】导出源代码换行符被转义为字面\n,代码无法按页50行展示
+              <span class="badge" style="background:#ea580c">严重</span>
+              <span class="ftype">数据</span></h4>
+          <p><b>预期:</b> 02_源代码_鉴别材料.txt 每行应为真实换行(0x0a),每页50行带行号,符合软著打印规范</p>
+          <p><b>实际:</b> 导出文件中行间分隔符为字面&#x27;\n&#x27;(0x5c 0x6e)而非真实换行; 整个源代码实际为单行含字面\n文本,破坏&#x27;每页50行带行号&#x27;格式; 根因 code_processor.py:402 separator=f&#x27;\n//...&#x27;, :443/:457/:472 page_content=&#x27;\n&#x27;.join(...) 全部误用双反斜杠; pages_data入库即含字面\n,导出仅原样写出</p>
+          <p class="evidence"><b>证据:</b> xxd artifacts/copyright_unzipped/02_源代码_鉴别材料.txt 偏移0xc0见5c6e; code_processor.py:402,443,457,472; 这是软著申请核心交付物,直接影响材料可用性</p>
+        </div>
+        <div class="finding" style="border-left-color:#ea580c">
+          <h4>#5 【重要】尼斯分类全局查询路由被错误挂到projects/{project_id}前缀下
+              <span class="badge" style="background:#ea580c">严重</span>
+              <span class="ftype">功能</span></h4>
+          <p><b>预期:</b> GET /api/v1/trademarks/nice-classes 为全局端点(用户创建商标前浏览分类),应可直接访问</p>
+          <p><b>实际:</b> GET /trademarks/nice-classes 返回404; 因 trademarks/__init__.py:16 把 nice_classification_router 整个挂到 prefix=/projects/{project_id} 下, 导致全局 /nice-classes 与 /nice-classes/by-id/{id} 都需 project_id; 用户在创建商标项目前无法浏览分类,严重影响易用性</p>
+          <p class="evidence"><b>证据:</b> GET /api/v1/trademarks/nice-classes -&gt; 404; GET /api/v1/trademarks/projects/{id}/nice-classes -&gt; 200 total=45; trademarks/__init__.py:16</p>
+        </div>
+        <div class="finding" style="border-left-color:#ea580c">
+          <h4>#6 【重要】GET /health 完整健康检查500(import async_session_maker失败)
+              <span class="badge" style="background:#ea580c">严重</span>
+              <span class="ftype">功能</span></h4>
+          <p><b>预期:</b> /health 应返回各依赖(db/redis/storage)探测状态</p>
+          <p><b>实际:</b> /health 返回 INTERNAL_ERROR 500; 根因 main.py:128 &#x27;from ipflow.db import async_session_maker&#x27; 但 db模块仅暴露 AsyncSessionLocal(非async_session_maker), ImportError; 健康检查不可用,影响运维监控</p>
+          <p class="evidence"><b>证据:</b> backend log traceback: ImportError: cannot import name &#x27;async_session_maker&#x27;; main.py:128; db/session.py 只定义 AsyncSessionLocal</p>
+        </div>
+        <div class="finding" style="border-left-color:#65a30d">
+          <h4>#1 重复注册同邮箱返回422而非409
+              <span class="badge" style="background:#65a30d">轻微</span>
+              <span class="ftype">异常</span></h4>
+          <p><b>预期:</b> 409 Conflict 或 400</p>
+          <p><b>实际:</b> 422 VALIDATION_ERROR msg=该邮箱已被注册</p>
+          <p class="evidence"><b>证据:</b> results/07-register-dupe.json；语义正确(已拦截),仅状态码非RESTful惯例,轻微</p>
+        </div>
+        <div class="finding" style="border-left-color:#65a30d">
+          <h4>#2 说明书page_count/word_count由服务端重算(非客户端值)
+              <span class="badge" style="background:#65a30d">轻微</span>
+              <span class="ftype">数据</span></h4>
+          <p><b>预期:</b> PUT 提交 page_count=18 时可能被采用</p>
+          <p><b>实际:</b> 服务端忽略客户端page_count,按 content_html 纯文本字数重算: word_count=len(text), page_count=max(1,word_count//800) (manuals.py:324-325); 属设计决策(防伪造),非bug,但需文档说明</p>
+          <p class="evidence"><b>证据:</b> results/15-compliance.txt; manuals.py:324</p>
+        </div>
+        <div class="finding" style="border-left-color:#2563eb">
+          <h4>#4 专利导出同时生成DOCX版本(超出预期,加分项)
+              <span class="badge" style="background:#2563eb">建议</span>
+              <span class="ftype">功能</span></h4>
+          <p><b>预期:</b> PRD只要求ZIP+TXT</p>
+          <p><b>实际:</b> 专利ZIP含 说明书.docx + 权利要求书.docx (python-docx可用时), 内容与TXT一致; 文档化处理完善</p>
+          <p class="evidence"><b>证据:</b> artifacts/patent_unzipped/ 含4文件</p>
+        </div>
+<h2>数据测试</h2><table><tr><th>校验点</th><th>预期</th><th>实际</th><th>结果</th></tr><tr class="pass"><td>注册数据落库:GET/me id/email/username一致,status=active</td><td>id一致,status=active</td><td>一致,active</td><td>✅ pass</td></tr><tr class="pass"><td>软件信息回显:全称/版本/语言一致 source=human revision=1</td><td>字段一致</td><td>全称/版本/语言一致,source=human,revision=1</td><td>✅ pass</td></tr><tr class="pass"><td>代码处理:total_files/total_lines/language_stats</td><td>6文件/8865行/.py=7863 .js=1002</td><td>6/8865/.py=7863 .js=1002 (语言统计总和=8865正确)</td><td>✅ pass</td></tr><tr class="pass"><td>代码分页:页数/每页行数/页眉/行号</td><td>前30+后30=60页,每页50行,页眉=软件名版本第X页,5位行号</td><td>60页(front30+back30),每页恰好50行,页眉&#x27;智能客服系统 V2.1.0 第X页&#x27;,行号00001起</td><td>✅ pass</td></tr><tr class="pass"><td>代码行数回写software-info</td><td>code_line_count=8865</td><td>8865</td><td>✅ pass</td></tr><tr class="pass"><td>导出ZIP含6文件且内容一致</td><td>01软件信息(含全称/版本/语言),02源代码(前30+后30),03说明书,04清单,05打印指南,06网报对照表</td><td>6文件齐全; 01含&#x27;智能客服系统/V2.1.0/Python/8865行&#x27;一致; 02页眉出现60次</td><td>✅ pass</td></tr><tr class="pass"><td>专利信息回显一致</td><td>patent_type/title/technical_field 一致</td><td>invention/标题一致/technical_field一致</td><td>✅ pass</td></tr><tr class="pass"><td>权利要求条目数=提交数,编号/内容一致</td><td>3条,1/2/3,父子引用正确</td><td>权利要求书.txt 含3条 1./2./3., 引用&#x27;根据权利要求1/2所述&#x27;正确,内容一致</td><td>✅ pass</td></tr><tr class="pass"><td>尼斯分类45类seed完整</td><td>45类, class_number 1-45, 含class_name</td><td>total=45 范围1-45(需经projects/{id}路径,见finding)</td><td>✅ pass</td></tr><tr class="pass"><td>申请书分类清单与选择一致</td><td>第9类科学仪器(4项)+第42类网站服务(4项)</td><td>申请书含 第9类-科学仪器(可下载计算机软件等4项)+第42类-网站服务(云计算/SaaS等4项),商标信息(word/云知/描述/颜色)一致</td><td>✅ pass</td></tr><tr class="pass"><td>三类型项目并列且隔离</td><td>7项目含copyright/patent/trademark,均为自己owner</td><td>7项目: copyright3/patent2/trademark2, 全属自己</td><td>✅ pass</td></tr></table>
+<h2>操作过程回放</h2><table><tr><th>#</th><th>动作</th><th>观察</th><th>判定</th></tr><tr class="pass"><td>1</td><td>POST /auth/register 合法注册</td><td>201 返回 access_token/id/email, 自动登录</td><td>pass</td></tr><tr class="pass"><td>2</td><td>POST /auth/login 用户名+密码</td><td>200 返回 access+refresh, user_id一致</td><td>pass</td></tr><tr class="pass"><td>3</td><td>POST /auth/login 邮箱+密码</td><td>200 user_id一致</td><td>pass</td></tr><tr class="pass"><td>4</td><td>错误密码登录</td><td>401 AUTHENTICATION_ERROR</td><td>pass</td></tr><tr class="pass"><td>5</td><td>无token访问受保护端点</td><td>401</td><td>pass</td></tr><tr class="pass"><td>6</td><td>重复注册同邮箱</td><td>422 已拦截(语义正确)</td><td>pass</td></tr><tr class="pass"><td>7</td><td>弱密码(&lt;8位)注册</td><td>422 校验失败</td><td>pass</td></tr><tr class="pass"><td>8</td><td>创建软著项目</td><td>201 type=copyright status=draft step=1 owner=自己</td><td>pass</td></tr><tr class="pass"><td>9</td><td>预览代码包page=1</td><td>含section/content/line_start/line_end,50行,页眉行号正确</td><td>pass</td></tr><tr class="pass"><td>10</td><td>创建操作说明书</td><td>201 title/template_type 回显; word_count/page_count 服务端重算</td><td>pass</td></tr><tr class="pass"><td>11</td><td>运行合规检查</td><td>13规则:初始1fail(说明书&lt;15页)+3warn; 充实后13 pass can_export=True</td><td>pass</td></tr><tr class="pass"><td>12</td><td>创建导出任务并下载</td><td>202 status=succeeded; GET download 200 application/zip 14318字节; 文件名=软著申请_智能客服系统_V2.1.0_20260630.zip</td><td>pass</td></tr><tr class="pass"><td>13</td><td>无代码导出</td><td>status=failed error=&#x27;请先上传源代码&#x27;, 不500</td><td>pass</td></tr><tr class="pass"><td>14</td><td>B用户访问A项目软件信息</td><td>404 按owner_id隔离</td><td>pass</td></tr><tr class="pass"><td>15</td><td>创建专利项目+填写专利信息</td><td>type=patent; patent_type=invention 回显一致 revision=1</td><td>pass</td></tr><tr class="pass"><td>16</td><td>添加独立+从属权利要求(1,2,3 链式)</td><td>3条创建成功; dependent parent正确</td><td>pass</td></tr><tr class="pass"><td>17</td><td>从属编号校验(parent&gt;=自身)</td><td>400 拒绝,不创建</td><td>pass</td></tr><tr class="pass"><td>18</td><td>专利导出+下载</td><td>succeeded; 200 application/zip 71408字节; 含TXT+DOCX双版本</td><td>pass</td></tr><tr class="pass"><td>19</td><td>无权利要求导出</td><td>status=failed error=&#x27;请至少填写一项权利要求&#x27;</td><td>pass</td></tr><tr class="pass"><td>20</td><td>创建商标项目+商标信息</td><td>type=trademark; word/云知 回显一致 revision=1</td><td>pass</td></tr><tr class="pass"><td>21</td><td>选择尼斯分类9+42</td><td>2类创建成功,商品服务项正确</td><td>pass</td></tr><tr class="pass"><td>22</td><td>商标导出+下载</td><td>succeeded; 200 application/zip 35517字节; 含TXT+DOCX</td><td>pass</td></tr><tr class="pass"><td>23</td><td>未选分类导出</td><td>status=failed error=&#x27;请至少选择一个尼斯分类&#x27;</td><td>pass</td></tr><tr class="pass"><td>24</td><td>/health/simple</td><td>200 {status:healthy}</td><td>pass</td></tr><tr class="pass"><td>25</td><td>/openapi.json /docs</td><td>200, 100 paths</td><td>pass</td></tr><tr class="fail"><td>26</td><td>/health 完整检查</td><td>500 INTERNAL_ERROR (见finding)</td><td>fail</td></tr><tr class="pass"><td>27</td><td>类型不匹配(patent项目上传code)</td><td>404 拦截</td><td>pass</td></tr></table>
+</body></html>

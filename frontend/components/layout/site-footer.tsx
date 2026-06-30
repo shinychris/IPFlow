@@ -25,6 +25,7 @@ const footerSections = [
     title: "法律",
     links: [
       { label: "隐私政策", href: "/privacy" },
+      { label: "用户协议", href: "/terms" },
     ],
   },
 ];
@@ -121,6 +122,9 @@ export function SiteFooter() {
           <div className="flex items-center space-x-4 text-sm text-muted-foreground">
             <Link href="/privacy" className="hover:text-foreground">
               隐私政策
+            </Link>
+            <Link href="/terms" className="hover:text-foreground">
+              用户协议
             </Link>
             <span>京ICP备XXXXXXXX号</span>
           </div>

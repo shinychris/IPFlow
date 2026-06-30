@@ -199,43 +199,43 @@ class TestAuthRegister:
             
             # Act
             response = await auth_client.post("/api/v1/auth/register", json=register_data)
-            
-            # Assert - ValidationException 返回 422
-            assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+
+            # Assert - ConflictException 返回 409（资源冲突，而非 422 校验错误）
+            assert response.status_code == status.HTTP_409_CONFLICT
             data = response.json()
             assert data["success"] is False
-            assert data["code"] == "VALIDATION_ERROR"
+            assert data["code"] == "CONFLICT"
             assert "email" in data["message"].lower() or "邮箱" in data["message"] or "注册" in data["message"]
-    
+
     async def test_register_duplicate_username(self, auth_client: AsyncClient):
         """测试使用已存在的用户名注册."""
         # Arrange
         from ipflow.models.user import User
-        
+
         existing_user = User(
             id="user-456",
             email="existing@example.com",
             username="existinguser",
             hashed_password="hashed",
         )
-        
+
         with patch("ipflow.api.v1.auth.get_user_by_email", new=AsyncMock(return_value=None)), \
              patch("ipflow.api.v1.auth.get_user_by_username", new=AsyncMock(return_value=existing_user)):
-            
+
             register_data = {
                 "email": "new@example.com",
                 "username": "existinguser",
                 "password": "StrongP@ss123",
             }
-            
+
             # Act
             response = await auth_client.post("/api/v1/auth/register", json=register_data)
-            
-            # Assert - ValidationException 返回 422
-            assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+
+            # Assert - ConflictException 返回 409（资源冲突，而非 422 校验错误）
+            assert response.status_code == status.HTTP_409_CONFLICT
             data = response.json()
             assert data["success"] is False
-            assert data["code"] == "VALIDATION_ERROR"
+            assert data["code"] == "CONFLICT"
     
     async def test_register_invalid_email(self, auth_client: AsyncClient):
         """测试使用无效的邮箱格式注册."""

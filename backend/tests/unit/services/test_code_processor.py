@@ -221,11 +221,35 @@ class TestCodeProcessor:
         ]
         
         merged = processor.merge_code_files(code_files)
-        
+
         assert "# File A" in merged
         assert "# File B" in merged
         assert "print('a')" in merged
         assert "print('b')" in merged
+
+    def test_merge_code_files_uses_real_newlines(self, processor):
+        """回归测试：合并代码必须使用真实换行（0x0a），不得转义为字面 ``\\n``.
+
+        上线前测试缺陷 #3：``merge_code_files`` 的文件分隔符曾误用 ``f"\\\\n//..."``，
+        导致导出源代码全部塌成单行，破坏软著「每页50行带行号」规范。
+        """
+        code_files = [
+            CodeFileInfo(
+                path="a.py",
+                relative_path="a.py",
+                size=10,
+                lines=1,
+                language="python",
+                extension=".py",
+                content="print('a')",
+            ),
+        ]
+        merged = processor.merge_code_files(code_files)
+        # 必须含真实换行，且不得含字面的反斜杠+n 两字节序列
+        assert "\n" in merged
+        assert "\\n" not in merged
+        # 文件分隔注释应是真实换行包裹，而非字面 \n
+        assert "\n// ==================== File: a.py" in merged
 
     def test_paginate_code_front_back_30(self, processor):
         """测试前30页+后30页分页."""
@@ -267,11 +291,27 @@ class TestCodeProcessor:
         content = "\n".join(lines)
         
         pages = processor.paginate_code_front_back_30(content)
-        
+
         # 应该只有 2 页（100行 / 50行每页）
         assert len(pages) == 2
         assert pages[0].section == "front"
         assert pages[1].section == "front"  # 不足时全部归为 front
+
+    def test_paginate_code_uses_real_newlines(self, processor):
+        """回归测试：分页内容必须用真实换行连接，不得转义为字面 ``\\n``.
+
+        上线前测试缺陷 #3：``paginate_code_front_back_30`` 曾用 ``'\\\\n'.join(...)``
+        连接页面行，导致导出源代码换行被字面化、无法按页50行打印。
+        """
+        lines = [f"Line {i}" for i in range(1, 121)]  # 120 行 → 3 页（不足3000，全 front）
+        content = "\n".join(lines)
+
+        pages = processor.paginate_code_front_back_30(content)
+        assert len(pages) >= 2
+        for page in pages:
+            # 每页内容必须含真实换行（多行），且不含字面的反斜杠+n
+            assert "\n" in page.content
+            assert "\\n" not in page.content
 
     def test_add_line_numbers(self, processor):
         """测试添加行号."""

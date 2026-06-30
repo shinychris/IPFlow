@@ -67,7 +67,22 @@ async def upload_file(
     
     # 读取文件内容
     content = await file.read()
-    
+
+    # 上传安全校验：扩展名 + MIME + 魔数 + 大小
+    from ipflow.services.upload_security import validate_upload
+
+    validation = validate_upload(
+        filename=file.filename,
+        content_type=file.content_type,
+        file_size=len(content),
+        content_head=content[:16],  # 取前 16 字节做魔数嗅探
+    )
+    if not validation.is_valid:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=validation.error,
+        )
+
     # 上传到存储
     upload_result = storage.upload_file(
         file_data=io.BytesIO(content),

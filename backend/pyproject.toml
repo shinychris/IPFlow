@@ -54,6 +54,12 @@ dependencies = [
     "python-docx>=1.1.0",
     # pydantic-ai Agent 后端（技能驱动 + 结构化输出的草稿生成）
     "pydantic-ai>=2.0.0",
+    # Stripe 支付（真实收款，Checkout Session + Webhook 验签）
+    "stripe>=11.0.0",
+    # 速率限制（防暴力破解、防刷量）
+    "slowapi>=0.1.9",
+    # 错误监控（Sentry，可选；未配置 DSN 时降级到日志/Webhook 告警）
+    "sentry-sdk>=2.0.0",
 ]
 
 [project.optional-dependencies]

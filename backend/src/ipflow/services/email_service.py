@@ -146,3 +146,97 @@ async def send_organization_invitation(
 </body></html>
 """
     return await send_email(to_email, subject, body, html=html)
+
+
+async def send_email_verification(
+    to_email: str,
+    username: str,
+    verify_url: str,
+) -> bool:
+    """发送邮箱验证邮件.
+
+    Args:
+        to_email: 收件人邮箱
+        username: 用户名（用于称呼）
+        verify_url: 验证链接（含 token，前端回跳后调用验证端点）
+
+    Returns:
+        发送是否成功
+    """
+    subject = "【IPFlow】请验证您的邮箱"
+    body = f"""您好，{username}：
+
+感谢您注册 IPFlow。请点击以下链接完成邮箱验证（24 小时内有效）：
+{verify_url}
+
+如非本人操作，请忽略本邮件。
+
+—— IPFlow 知识产权申报材料辅助工具
+"""
+    html = f"""
+<html><body style="font-family: -apple-system, sans-serif; line-height: 1.6; color: #333;">
+<h2 style="color: #2563eb;">验证您的邮箱</h2>
+<p>您好，<strong>{username}</strong>：</p>
+<p>感谢您注册 IPFlow。请点击以下按钮完成邮箱验证：</p>
+<p>
+  <a href="{verify_url}"
+     style="display:inline-block;background:#2563eb;color:#fff;padding:10px 24px;
+            border-radius:6px;text-decoration:none;font-weight:bold;">
+    验证邮箱
+  </a>
+</p>
+<p style="color:#666;font-size:13px;">
+  链接 24 小时内有效。如非本人操作，请忽略本邮件。
+</p>
+<hr style="border:none;border-top:1px solid #eee;margin:24px 0;">
+<p style="color:#999;font-size:12px;">—— IPFlow 知识产权申报材料辅助工具</p>
+</body></html>
+"""
+    return await send_email(to_email, subject, body, html=html)
+
+
+async def send_password_reset(
+    to_email: str,
+    username: str,
+    reset_url: str,
+) -> bool:
+    """发送密码重置邮件.
+
+    Args:
+        to_email: 收件人邮箱
+        username: 用户名（用于称呼）
+        reset_url: 重置链接（含 token，前端回跳后展示重置表单）
+
+    Returns:
+        发送是否成功
+    """
+    subject = "【IPFlow】重置您的密码"
+    body = f"""您好，{username}：
+
+我们收到了您的密码重置请求。请点击以下链接设置新密码（1 小时内有效）：
+{reset_url}
+
+如非本人操作，请忽略本邮件，您的密码不会被更改。
+
+—— IPFlow 知识产权申报材料辅助工具
+"""
+    html = f"""
+<html><body style="font-family: -apple-system, sans-serif; line-height: 1.6; color: #333;">
+<h2 style="color: #2563eb;">重置您的密码</h2>
+<p>您好，<strong>{username}</strong>：</p>
+<p>我们收到了您的密码重置请求。请点击以下按钮设置新密码：</p>
+<p>
+  <a href="{reset_url}"
+     style="display:inline-block;background:#2563eb;color:#fff;padding:10px 24px;
+            border-radius:6px;text-decoration:none;font-weight:bold;">
+    重置密码
+  </a>
+</p>
+<p style="color:#666;font-size:13px;">
+  链接 1 小时内有效。如非本人操作，请忽略本邮件，您的密码不会被更改。
+</p>
+<hr style="border:none;border-top:1px solid #eee;margin:24px 0;">
+<p style="color:#999;font-size:12px;">—— IPFlow 知识产权申报材料辅助工具</p>
+</body></html>
+"""
+    return await send_email(to_email, subject, body, html=html)

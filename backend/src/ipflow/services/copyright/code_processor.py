@@ -399,13 +399,13 @@ class CodeProcessor:
         
         for file in code_files:
             # 添加文件分隔注释
-            separator = f"\\n// ==================== File: {file.path} ====================\\n"
+            separator = f"\n// ==================== File: {file.path} ====================\n"
             merged_parts.append(separator)
-            
+
             if file.content:
                 merged_parts.append(file.content)
                 # 确保文件末尾有换行
-                if not file.content.endswith('\\n'):
+                if not file.content.endswith('\n'):
                     merged_parts.append('\n')
         
         return ''.join(merged_parts)
@@ -440,7 +440,7 @@ class CodeProcessor:
             for page_num in range(0, (total_lines + self.lines_per_page - 1) // self.lines_per_page):
                 start_line = page_num * self.lines_per_page + 1
                 end_line = min((page_num + 1) * self.lines_per_page, total_lines)
-                page_content = '\\n'.join(lines[start_line - 1:end_line])
+                page_content = '\n'.join(lines[start_line - 1:end_line])
                 
                 pages.append(PagedContent(
                     page_number=page_num + 1,
@@ -454,7 +454,7 @@ class CodeProcessor:
             for page_num in range(front_pages):
                 start_line = page_num * self.lines_per_page + 1
                 end_line = (page_num + 1) * self.lines_per_page
-                page_content = '\\n'.join(lines[start_line - 1:end_line])
+                page_content = '\n'.join(lines[start_line - 1:end_line])
                 
                 pages.append(PagedContent(
                     page_number=page_num + 1,
@@ -469,7 +469,7 @@ class CodeProcessor:
             for page_num in range(total_pages - front_pages):
                 start_line = back_start_line + page_num * self.lines_per_page
                 end_line = min(back_start_line + (page_num + 1) * self.lines_per_page - 1, total_lines)
-                page_content = '\\n'.join(lines[start_line - 1:end_line])
+                page_content = '\n'.join(lines[start_line - 1:end_line])
                 
                 pages.append(PagedContent(
                     page_number=front_pages + page_num + 1,
