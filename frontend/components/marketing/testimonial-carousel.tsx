@@ -47,6 +47,26 @@ const testimonials = [
     rating: 5,
     projectType: "copyright" as const,
   },
+  {
+    id: "5",
+    name: "陈宇",
+    role: "研发总监",
+    company: "智能硬件企业",
+    avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Michael",
+    content: "发明专利的权利要求书一直是我们最头疼的环节，IPFlow辅助生成的初稿逻辑清晰、覆盖全面，配合工程师微调后很快定稿，申请周期明显缩短。",
+    rating: 5,
+    projectType: "patent" as const,
+  },
+  {
+    id: "6",
+    name: "林婷",
+    role: "品牌经理",
+    company: "新消费品牌",
+    avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Emma",
+    content: "一次要注册十几个类别的商标，尼斯分类查询和图样整理原本特别繁琐。IPFlow把材料清单梳理得明明白白，多件申请也能井井有条。",
+    rating: 5,
+    projectType: "trademark" as const,
+  },
 ];
 
 const projectTypeLabels = {
