@@ -1358,7 +1358,7 @@ pytest-flask==1.2.0
   },
   "compileType": "miniprogram",
   "libVersion": "2.32.0",
-  "appid": "wx1234567890abcdef",
+  "appid": "wx0000000000000000",
   "projectname": "example-app",
   "condition": {}
 }
